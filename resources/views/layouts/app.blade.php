@@ -67,8 +67,11 @@
             @endif
 
             @if(auth()->check() && auth()->user()->hasPermission('Compras'))
-                <a href="{{ url('/compras') }}" class="sidebar-link {{ Request::is('compras*') ? 'active' : '' }}">
+                <a href="{{ url('/compras') }}" class="sidebar-link {{ (Request::is('compras') || Request::is('compras/*')) && !Request::is('compras/notas-credito*') ? 'active' : '' }}">
                     <i class="fa-solid fa-cart-shopping"></i> <span>Compras</span>
+                </a>
+                <a href="{{ url('/compras/notas-credito') }}" class="sidebar-link {{ Request::is('compras/notas-credito*') ? 'active' : '' }}">
+                    <i class="fa-solid fa-file-circle-minus"></i> <span>NC Compras</span>
                 </a>
             @else
                 <a href="#" class="sidebar-link text-muted" onclick="alert('No tienes permisos para acceder a Compras.'); return false;" style="opacity: 0.6;">

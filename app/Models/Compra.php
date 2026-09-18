@@ -18,7 +18,7 @@ class Compra extends Model
         'subtotal_sin_impuestos',
         'iva',
         'total',
-        'observaciones'
+        'observaciones',
     ];
 
     public function proveedor()
@@ -39,5 +39,52 @@ class Compra extends Model
     public function detalles()
     {
         return $this->hasMany(CompraDetalle::class, 'compra_id');
+    }
+
+    public function movimiento()
+    {
+        return $this->belongsTo(Movimiento::class, 'movimiento_id');
+    }
+
+    public function notasCredito()
+    {
+        return $this->hasMany(CompraNotaCredito::class, 'compra_id');
+    }
+
+    public function getNombreUsuarioAttribute()
+    {
+        if ($this->usuario) {
+            return $this->usuario->nombre_completo;
+        }
+        $user = User::find($this->usuario_id);
+
+        return $user ? "{$user->name} {$user->apellido}" : 'Usuario Sistema';
+    }
+
+    public function getItemsCountAttribute()
+    {
+        return $this->detalles()->count();
+    }
+
+    public function getCantidadTotalArticulosAttribute()
+    {
+        return (float) $this->detalles()->sum('cantidad');
+    }
+
+    public function getNotasCreditoValidasAttribute()
+    {
+        return $this->notasCredito()->where('estado', 'EMITIDA')->get();
+    }
+
+    public function getTotalNotasCreditoAttribute(): float
+    {
+        return (float) $this->notasCredito()->where('estado', 'EMITIDA')->sum('total');
+    }
+
+    public function getSaldoPendienteAttribute(): float
+    {
+        $saldo = (float) $this->total - $this->total_notas_credito;
+
+        return max(0.0, round($saldo, 2));
     }
 }
