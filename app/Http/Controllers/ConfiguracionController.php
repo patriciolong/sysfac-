@@ -3,23 +3,25 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Emisor;
+use App\Models\ConfiguracionEmpresa;
 use App\Models\PuntoEmision;
 use App\Models\MetodoPago;
+use Illuminate\Support\Facades\Storage;
 
 class ConfiguracionController extends Controller
 {
     public function index()
     {
-        $emisorModel = Emisor::first();
+        $emisorModel = ConfiguracionEmpresa::first();
         $emisor = [
-            'ruc' => $emisorModel ? $emisorModel->ruc : '1792948201001',
-            'razon_social' => $emisorModel ? $emisorModel->razon_social : 'NATURISTA EXPRESS CIA. LTDA.',
-            'nombre_comercial' => $emisorModel ? $emisorModel->nombre_comercial : 'NATURISTA EXPRESS',
-            'direccion_matriz' => $emisorModel ? $emisorModel->direccion_matriz : 'Av. 10 de Agosto N24-150 y Colón',
-            'regimen_rimpe' => $emisorModel ? $emisorModel->regimen_rimpe : 'CONTRIBUYENTE RÉGIMEN RIMPE',
+            'ruc' => $emisorModel ? $emisorModel->ruc : '',
+            'razon_social' => $emisorModel ? $emisorModel->razon_social : '',
+            'nombre_comercial' => $emisorModel ? $emisorModel->nombre_comercial : '',
+            'direccion_matriz' => $emisorModel ? $emisorModel->direccion_matriz : '',
+            'regimen_rimpe' => $emisorModel ? $emisorModel->regimen_rimpe : 'NO APLICA',
             'ambiente_sri' => $emisorModel ? $emisorModel->ambiente_sri : 1,
-            'firma_ruta' => $emisorModel ? $emisorModel->firma_electronica_ruta : 'firma_naturista.p12'
+            'firma_ruta' => $emisorModel ? $emisorModel->firma_ruta : '',
+            'firma_clave' => $emisorModel ? $emisorModel->firma_clave : ''
         ];
 
         $puntos_emision = PuntoEmision::all()->map(function ($p) {
@@ -53,17 +55,35 @@ class ConfiguracionController extends Controller
             'nombre_comercial' => 'nullable|string|max:300',
             'direccion_matriz' => 'nullable|string|max:300',
             'regimen_rimpe' => 'nullable|string',
-            'ambiente_sri' => 'nullable|integer|in:1,2'
+            'ambiente_sri' => 'nullable|integer|in:1,2',
+            'firma_archivo' => 'nullable|file|mimes:p12,pfx|max:2048',
+            'firma_clave' => 'nullable|string'
         ]);
 
-        $emisor = Emisor::first();
-        if ($emisor) {
-            $emisor->update(array_filter($validated));
+        $emisor = ConfiguracionEmpresa::first();
+        if (!$emisor) {
+            $emisor = new ConfiguracionEmpresa();
         }
 
-        if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Configuración actualizada']);
+        $emisor->ruc = $validated['ruc'] ?? $emisor->ruc;
+        $emisor->razon_social = $validated['razon_social'] ?? $emisor->razon_social;
+        $emisor->nombre_comercial = $validated['nombre_comercial'] ?? $emisor->nombre_comercial;
+        $emisor->direccion_matriz = $validated['direccion_matriz'] ?? $emisor->direccion_matriz;
+        $emisor->regimen_rimpe = $validated['regimen_rimpe'] ?? $emisor->regimen_rimpe;
+        $emisor->ambiente_sri = $validated['ambiente_sri'] ?? $emisor->ambiente_sri;
+
+        if ($request->filled('firma_clave')) {
+            $emisor->firma_clave = $validated['firma_clave'];
         }
+
+        if ($request->hasFile('firma_archivo')) {
+            $file = $request->file('firma_archivo');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $path = $file->storeAs('firmas', $filename, 'local');
+            $emisor->firma_ruta = $path;
+        }
+
+        $emisor->save();
 
         return redirect('/configuracion')->with('success', 'Configuración actualizada correctamente');
     }

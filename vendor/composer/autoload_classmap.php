@@ -6361,6 +6361,7 @@ return array(
     'SebastianBergmann\\Version' => $vendorDir . '/sebastian/version/src/Version.php',
     'SensitiveParameter' => $vendorDir . '/symfony/polyfill-php82/Resources/stubs/SensitiveParameter.php',
     'SensitiveParameterValue' => $vendorDir . '/symfony/polyfill-php82/Resources/stubs/SensitiveParameterValue.php',
+    'Shuchkin\\SimpleXLSXGen' => $vendorDir . '/shuchkin/simplexlsxgen/src/SimpleXLSXGen.php',
     'SortDirection' => $vendorDir . '/symfony/polyfill-php86/Resources/stubs/SortDirection.php',
     'Stringable' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
     'Svg\\CssLength' => $vendorDir . '/dompdf/php-svg-lib/src/Svg/CssLength.php',

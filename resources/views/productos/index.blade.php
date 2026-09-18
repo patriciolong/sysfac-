@@ -11,9 +11,15 @@
             <h1 style="margin-bottom: 0.15rem;"><i class="fa-solid fa-boxes-stacked text-primary"></i> Inventario & Catálogo de Productos</h1>
             <p style="margin: 0; font-size: 0.85rem;">Consulte existencias en bodega, precios de venta y administre su catálogo fácilmente.</p>
         </div>
-        <button class="btn-card-action btn-success btn-sm" onclick="openModal('modalNuevoProducto')">
-            <i class="fa-solid fa-plus-circle"></i> Nuevo Producto
-        </button>
+        @if(auth()->user()->hasPermission('Productos', 'master'))
+            <button class="btn-card-action btn-success btn-sm" onclick="openModal('modalNuevoProducto')">
+                <i class="fa-solid fa-plus-circle"></i> Nuevo Producto
+            </button>
+        @else
+            <button class="btn-card-action btn-secondary btn-sm" style="opacity: 0.6;" onclick="alert('No tiene permisos para crear productos.')">
+                <i class="fa-solid fa-plus-circle"></i> Nuevo Producto 🔒
+            </button>
+        @endif
     </div>
 </div>
 
@@ -99,9 +105,15 @@
                     </td>
                     <td style="text-align: center;">
                         <div style="display: inline-flex; gap: 0.35rem;">
-                            <button class="btn-card-action btn-secondary btn-sm" onclick="alert('Modificar {{ $prod['nombre'] }}')">
-                                <i class="fa-solid fa-pen"></i> Editar
-                            </button>
+                            @if(auth()->user()->hasPermission('Productos', 'master'))
+                                <button class="btn-card-action btn-secondary btn-sm" onclick="alert('Modificar {{ $prod['nombre'] }}')">
+                                    <i class="fa-solid fa-pen"></i> Editar
+                                </button>
+                            @else
+                                <button class="btn-card-action btn-secondary btn-sm" style="opacity: 0.6;" onclick="alert('No tiene permisos para editar productos.')">
+                                    <i class="fa-solid fa-pen"></i> Editar 🔒
+                                </button>
+                            @endif
                             <a href="{{ url('/kardex') }}" class="btn-card-action btn-primary btn-sm">
                                 <i class="fa-solid fa-chart-line"></i> Kardex
                             </a>
