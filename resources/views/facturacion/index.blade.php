@@ -131,7 +131,7 @@
                 </label>
                 <select id="selectCliente" class="form-control" style="font-weight: 600; background-color: #f8fafc; height: 36px; font-size: 0.84rem;">
                     @foreach($clientes as $cli)
-                    <option value="{{ $cli['id'] }}">{{ $cli['razon_social'] }} ({{ $cli['identificacion'] }})</option>
+                    <option value="{{ $cli['id'] }}" {{ request('cliente_id') == $cli['id'] ? 'selected' : '' }}>{{ $cli['razon_social'] }} ({{ $cli['identificacion'] }})</option>
                     @endforeach
                 </select>
             </div>
