@@ -56,8 +56,11 @@ class ConfiguracionController extends Controller
             'direccion_matriz' => 'nullable|string|max:300',
             'regimen_rimpe' => 'nullable|string',
             'ambiente_sri' => 'nullable|integer|in:1,2',
-            'firma_archivo' => 'nullable|file|mimes:p12,pfx|max:2048',
-            'firma_clave' => 'nullable|string'
+            'firma_archivo' => 'nullable|file|max:2048',
+            'firma_clave' => 'nullable|string',
+            'establecimiento' => 'nullable|string|size:3',
+            'punto_emision' => 'nullable|string|size:3',
+            'secuencial_factura' => 'nullable|integer|min:1'
         ]);
 
         $emisor = ConfiguracionEmpresa::first();
@@ -79,12 +82,42 @@ class ConfiguracionController extends Controller
         if ($request->hasFile('firma_archivo')) {
             $file = $request->file('firma_archivo');
             $filename = time() . '_' . $file->getClientOriginalName();
-            $path = $file->storeAs('firmas', $filename, 'local');
+            $path = $file->storeAs('certificados', $filename, 'local'); // Cambiado a certificados
             $emisor->firma_ruta = $path;
         }
 
         $emisor->save();
 
+        // Sincronizar también con la tabla configuracion_emisor para mantener compatibilidad
+        $config_emisor = \App\Models\Emisor::first();
+        if ($config_emisor) {
+            $config_emisor->ruc = $emisor->ruc;
+            $config_emisor->razon_social = $emisor->razon_social;
+            $config_emisor->nombre_comercial = $emisor->nombre_comercial;
+            $config_emisor->direccion_matriz = $emisor->direccion_matriz;
+            $config_emisor->regimen_rimpe = $emisor->regimen_rimpe;
+            $config_emisor->ambiente_sri = $emisor->ambiente_sri;
+            
+            if ($request->filled('firma_clave')) {
+                $config_emisor->firma_electronica_clave = $emisor->firma_clave;
+            }
+            if ($request->hasFile('firma_archivo')) {
+                $config_emisor->firma_electronica_ruta = $emisor->firma_ruta;
+            }
+            $config_emisor->save();
+        }
+
+        // Actualizar Punto de Emision
+        $punto = \App\Models\PuntoEmision::where('estado', 'ACTIVO')->first();
+        if (!$punto) {
+            $punto = new \App\Models\PuntoEmision();
+            $punto->estado = 'ACTIVO';
+        }
+        if ($request->filled('establecimiento')) $punto->establecimiento = str_pad($request->establecimiento, 3, '0', STR_PAD_LEFT);
+        if ($request->filled('punto_emision')) $punto->punto_emision = str_pad($request->punto_emision, 3, '0', STR_PAD_LEFT);
+        if ($request->filled('secuencial_factura')) $punto->secuencial_factura = $request->secuencial_factura;
+        $punto->save();
+        
         return redirect('/configuracion')->with('success', 'Configuración actualizada correctamente');
     }
 }

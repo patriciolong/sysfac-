@@ -10,6 +10,7 @@
         "barryvdh/laravel-dompdf": "*",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0",
+        "picqer/php-barcode-generator": "*",
         "shuchkin/simplexlsxgen": "^1.5"
     },
     "require-dev": {

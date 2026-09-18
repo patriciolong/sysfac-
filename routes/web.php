@@ -42,8 +42,11 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Facturación POS
-    Route::get('/facturacion', [FacturacionController::class, 'index'])->middleware('permission:Facturación,lectura');
-    Route::post('/facturacion/emitir', [FacturacionController::class, 'store'])->middleware('permission:Facturación,master');
+    Route::get('/facturacion', [FacturacionController::class, 'index'])->name('facturacion.index')->middleware('permission:Facturación,lectura');
+    Route::post('/facturacion/emitir', [FacturacionController::class, 'store'])->name('facturacion.emitir')->middleware('permission:Facturación,master');
+    Route::post('/facturacion/reautorizar', [FacturacionController::class, 'reautorizar'])->name('facturacion.reautorizar')->middleware('permission:Facturación,master');
+    Route::get('/facturacion/{id}', [FacturacionController::class, 'show'])->name('facturacion.show')->middleware('permission:Facturación,lectura');
+    Route::get('/facturacion/{id}/pdf', [FacturacionController::class, 'pdf'])->name('facturacion.pdf')->middleware('permission:Facturación,lectura');
 
     // Clientes
     Route::get('/clientes/export', [ClienteController::class, 'export'])->name('clientes.export')->middleware('permission:Clientes,lectura');
