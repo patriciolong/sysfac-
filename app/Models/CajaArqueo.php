@@ -22,7 +22,7 @@ class CajaArqueo extends Model
         'diferencia',
         'tipo_arqueo',
         'observaciones',
-        'estado'
+        'estado',
     ];
 
     public function turno()

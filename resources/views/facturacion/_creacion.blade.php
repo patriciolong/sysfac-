@@ -3,19 +3,17 @@
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
         <div>
             <h1 style="font-size: 1.25rem; margin-bottom: 0.15rem;">
-                <i class="fa-solid fa-cash-register text-primary"></i> Punto de Venta (POS)
+                <i class="fa-solid fa-cash-register text-primary"></i> Punto de Venta
             </h1>
             <p style="margin: 0; font-size: 0.85rem;">
-                Factura SRI Nº: <strong id="topSecuencial" style="color: var(--primary);">{{ $secuencial_siguiente }}</strong> &bull; Emisión: <strong>NORMAL</strong>
+                Factura <strong id="topSecuencial" style="color: var(--primary);">{{ $secuencial_siguiente }}</strong> &bull; Emisión: <strong>NORMAL</strong>
             </p>
         </div>
         <div style="display: flex; gap: 0.65rem; align-items: center;">
             <button class="btn-card-action btn-secondary btn-sm" onclick="openModal('modalCliente')">
                 <i class="fa-solid fa-user-plus"></i> Nuevo Cliente
             </button>
-            <span class="badge badge-success">
-                <i class="fa-solid fa-wifi"></i> SRI CONECTADO
-            </span>
+          
         </div>
     </div>
 </div>
@@ -166,7 +164,7 @@
                     <strong id="subtotalVal">$0.00</strong>
                 </div>
                 <div class="pos-total-row">
-                    <span>IVA (15%):</span>
+                    <span>IVA ({{ $iva_defecto ?? 15 }}%):</span>
                     <strong id="ivaVal">$0.00</strong>
                 </div>
                 <div class="pos-total-grand">
@@ -291,6 +289,7 @@
 
 @push('scripts')
 <script>
+    window.IVA_DEFECTO = {{ $iva_defecto ?? 15 }};
     
     function validarIdentificacion(numero, tipo) {
         if (!numero) return false;
@@ -430,7 +429,10 @@
         cart.forEach((item, idx) => {
             const itemTotal = item.precio * item.qty;
             subtotal += itemTotal;
-            const tarifaIva = item.tarifa_iva || (item.codigo_iva === '2' ? 15 : 0);
+            let tarifaIva = 0;
+            if (item.codigo_iva !== '0') {
+                tarifaIva = typeof window.IVA_DEFECTO !== 'undefined' ? window.IVA_DEFECTO : 15;
+            }
             if (tarifaIva > 0) {
                 totalIva += itemTotal * (tarifaIva / 100);
             }

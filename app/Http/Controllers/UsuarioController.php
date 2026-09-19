@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
 use App\Models\UserPermiso;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -19,8 +19,8 @@ class UsuarioController extends Controller
             $busqueda = $request->buscar;
             $query->where(function ($q) use ($busqueda) {
                 $q->where('name', 'like', "%{$busqueda}%")
-                  ->orWhere('apellido', 'like', "%{$busqueda}%")
-                  ->orWhere('email', 'like', "%{$busqueda}%");
+                    ->orWhere('apellido', 'like', "%{$busqueda}%")
+                    ->orWhere('email', 'like', "%{$busqueda}%");
             });
         }
 
@@ -41,6 +41,7 @@ class UsuarioController extends Controller
     public function create()
     {
         $roles = Role::where('estado', 'activo')->get();
+
         return view('usuarios.create', compact('roles'));
     }
 
@@ -70,6 +71,7 @@ class UsuarioController extends Controller
     public function edit(User $usuario)
     {
         $roles = Role::where('estado', 'activo')->get();
+
         return view('usuarios.edit', compact('usuario', 'roles'));
     }
 
@@ -123,14 +125,14 @@ class UsuarioController extends Controller
         }
 
         $modulos = [
-            'Facturación', 'Caja', 'Productos', 'Compras', 
-            'Kardex', 'Clientes', 'Proveedores', 'Reportes', 
-            'Configuración', 'Usuarios'
+            'Facturación', 'Caja', 'Productos', 'Compras',
+            'Kardex', 'Clientes', 'Proveedores', 'Reportes',
+            'Configuración', 'Usuarios',
         ];
 
         // Obtener permisos del rol
         $rolePermisos = $usuario->role ? $usuario->role->permisos->keyBy('modulo') : collect();
-        
+
         // Obtener permisos específicos del usuario
         $userPermisos = $usuario->permisos->keyBy('modulo');
 
@@ -154,7 +156,7 @@ class UsuarioController extends Controller
                 UserPermiso::create([
                     'user_id' => $usuario->id,
                     'modulo' => $modulo,
-                    'nivel' => $nivel
+                    'nivel' => $nivel,
                 ]);
             }
         }

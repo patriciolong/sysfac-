@@ -1,3 +1,7 @@
+@php
+    $tarifa_iva = $factura->detalles->where('tarifa_iva', '>', 0)->first()->tarifa_iva ?? \App\Models\ConfiguracionEmpresa::first()->iva_defecto ?? 15;
+    $tarifa_iva_fmt = rtrim(rtrim(number_format($tarifa_iva, 2), '0'), '.');
+@endphp
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -190,7 +194,7 @@
             <div class="col-right">
                 <table style="width: 100%;">
                     <tr>
-                        <td class="font-bold">SUBTOTAL 15%</td>
+                        <td class="font-bold">SUBTOTAL {{ $tarifa_iva_fmt }}%</td>
                         <td class="text-right">${{ number_format($factura->base_imponible_iva, 2) }}</td>
                     </tr>
                     <tr>
@@ -214,7 +218,7 @@
                         <td class="text-right">${{ number_format($factura->total_descuento, 2) }}</td>
                     </tr>
                     <tr>
-                        <td class="font-bold">IVA 15%</td>
+                        <td class="font-bold">IVA {{ $tarifa_iva_fmt }}%</td>
                         <td class="text-right">${{ number_format($factura->valor_iva, 2) }}</td>
                     </tr>
                     <tr>

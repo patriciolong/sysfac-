@@ -51,11 +51,30 @@
                     <input type="text" name="direccion_matriz" class="form-control" value="{{ old('direccion_matriz', $emisor['direccion_matriz']) }}" required>
                 </div>
                 <div class="form-group">
+                    <label class="form-label">Obligado a llevar contabilidad</label>
+                    <select name="obligado_contabilidad" class="form-control">
+                        <option value="NO" {{ ($emisor['obligado_contabilidad'] ?? 'NO') == 'NO' ? 'selected' : '' }}>NO</option>
+                        <option value="SI" {{ ($emisor['obligado_contabilidad'] ?? 'NO') == 'SI' ? 'selected' : '' }}>SI</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label class="form-label">Régimen Tributario SRI</label>
                     <select name="regimen_rimpe" class="form-control">
                         <option value="CONTRIBUYENTE RÉGIMEN RIMPE" {{ $emisor['regimen_rimpe'] == 'CONTRIBUYENTE RÉGIMEN RIMPE' ? 'selected' : '' }}>CONTRIBUYENTE RÉGIMEN RIMPE</option>
                         <option value="CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE" {{ $emisor['regimen_rimpe'] == 'CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE' ? 'selected' : '' }}>CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE</option>
                         <option value="NO APLICA" {{ $emisor['regimen_rimpe'] == 'NO APLICA' ? 'selected' : '' }}>NO APLICA (Régimen General)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Porcentaje de IVA por Defecto (%)</label>
+                    <select name="iva_defecto" class="form-control">
+                        <option value="0" {{ $emisor['iva_defecto'] == 0 ? 'selected' : '' }}>0%</option>
+                        <option value="5" {{ $emisor['iva_defecto'] == 5 ? 'selected' : '' }}>5%</option>
+                        <option value="8" {{ $emisor['iva_defecto'] == 8 ? 'selected' : '' }}>8%</option>
+                        <option value="12" {{ $emisor['iva_defecto'] == 12 ? 'selected' : '' }}>12%</option>
+                        <option value="13" {{ $emisor['iva_defecto'] == 13 ? 'selected' : '' }}>13%</option>
+                        <option value="14" {{ $emisor['iva_defecto'] == 14 ? 'selected' : '' }}>14%</option>
+                        <option value="15" {{ $emisor['iva_defecto'] == 15 ? 'selected' : '' }}>15%</option>
                     </select>
                 </div>
             </div>
@@ -126,6 +145,10 @@
                 <div class="form-group">
                     <label class="form-label">Secuencial Inicial Factura</label>
                     <input type="number" name="secuencial_factura" class="form-control" value="{{ $puntos_emision->first() ? $puntos_emision->first()['secuencial_factura'] : '1' }}" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Secuencial Nota de Crédito</label>
+                    <input type="number" name="secuencial_nota_credito" class="form-control" value="{{ $puntos_emision->first() ? ($puntos_emision->first()['secuencial_nota_credito'] ?? '1') : '1' }}" min="1" required>
                 </div>
             </div>
         </div>

@@ -879,3 +879,114 @@ textarea.form-control {
   .action-grid { grid-template-columns: 1fr; }
   .metrics-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ==========================================================================
+   PAGINACIÓN PERSONALIZADA & CONSISTENTE
+   ========================================================================== */
+.custom-pagination-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem 0.25rem 0.25rem 0.25rem;
+}
+
+.pagination-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.pagination-info strong {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.pagination-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pagination-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-main);
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: all 0.15s ease;
+  user-select: none;
+  cursor: pointer;
+}
+
+.pagination-item i {
+  font-size: 0.75rem;
+}
+
+.pagination-item:hover:not(.pagination-disabled):not(.pagination-ellipsis):not(.pagination-active) {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary-border);
+}
+
+.pagination-item.pagination-active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(30, 64, 175, 0.25);
+  cursor: default;
+}
+
+.pagination-item.pagination-disabled {
+  color: #cbd5e1;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.pagination-item.pagination-ellipsis {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: default;
+  min-width: 24px;
+}
+
+/* Control estricto de iconos SVG en cualquier paginador */
+nav[role="navigation"] svg,
+.pagination svg,
+.custom-pagination-wrapper svg {
+  width: 1.1rem !important;
+  height: 1.1rem !important;
+  max-width: 1.1rem !important;
+  max-height: 1.1rem !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+
+nav[role="navigation"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 0.75rem !important;
+  font-size: 0.875rem !important;
+}
+
+@media (max-width: 640px) {
+  .custom-pagination-wrapper {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+}

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class FacturaPago extends Model
 {
     protected $table = 'ventas_pagos_factura';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -14,7 +15,7 @@ class FacturaPago extends Model
         'metodo_pago_id',
         'total',
         'plazo',
-        'unidad_tiempo'
+        'unidad_tiempo',
     ];
 
     public function factura()

@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('modulo');
             $table->enum('nivel', ['master', 'lectura'])->default('lectura');
             $table->timestamps();
-            
+
             $table->unique(['role_id', 'modulo']);
         });
 
@@ -35,7 +35,7 @@ return new class extends Migration
             $table->string('modulo');
             $table->enum('nivel', ['master', 'lectura', 'ninguno'])->default('ninguno');
             $table->timestamps();
-            
+
             $table->unique(['user_id', 'modulo']);
         });
 

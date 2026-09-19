@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Facturación Electrónica') - Naturista Express</title>
+    <title>@yield('title', 'Facturación Electrónica') - Naturista</title>
     <!-- Google Fonts & Font Awesome Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,7 +22,7 @@
         <div class="sidebar-header">
             <a href="{{ url('/') }}" class="brand-logo">
                 <i class="fa-solid fa-leaf" style="color: #10b981;"></i>
-                <span class="brand-text">NATURISTA EXPRESS</span>
+                <span class="brand-text">NATURISTA</span>
             </a>
             <button class="toggle-sidebar-btn" onclick="toggleSidebar()">
                 <i class="fa-solid fa-bars"></i>
@@ -39,9 +39,15 @@
                 <a href="{{ url('/facturacion') }}" class="sidebar-link {{ Request::is('facturacion*') ? 'active' : '' }}">
                     <i class="fa-solid fa-file-invoice-dollar"></i> <span>Facturación</span>
                 </a>
+                <a href="{{ url('/notas-credito') }}" class="sidebar-link {{ Request::is('notas-credito*') ? 'active' : '' }}">
+                    <i class="fa-solid fa-file-circle-minus"></i> <span>Notas de Crédito</span>
+                </a>
             @else
                 <a href="#" class="sidebar-link text-muted" onclick="alert('No tienes permisos para acceder a Facturación.'); return false;" style="opacity: 0.6;">
                     <i class="fa-solid fa-file-invoice-dollar"></i> <span>Facturación 🔒</span>
+                </a>
+                <a href="#" class="sidebar-link text-muted" onclick="alert('No tienes permisos para acceder a Notas de Crédito.'); return false;" style="opacity: 0.6;">
+                    <i class="fa-solid fa-file-circle-minus"></i> <span>Notas de Crédito 🔒</span>
                 </a>
             @endif
             
@@ -152,7 +158,6 @@
                     <button class="mobile-toggle" onclick="toggleSidebar()">
                         <i class="fa-solid fa-bars"></i>
                     </button>
-                    <span class="brand-badge">SRI v2.0</span>
                 </div>
 
                 <div class="header-actions">

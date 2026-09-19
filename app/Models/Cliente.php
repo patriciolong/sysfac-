@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Cliente extends Model
 {
     protected $table = 'clientes_cliente';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -16,7 +17,7 @@ class Cliente extends Model
         'direccion',
         'telefono',
         'correo',
-        'obligado_contabilidad'
+        'obligado_contabilidad',
     ];
 
     public function getTipoNombreAttribute()

@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use App\Observers\FacturaObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 
+#[ObservedBy([FacturaObserver::class])]
 class Factura extends Model
 {
     protected $table = 'ventas_facturas';
+
+    protected $appends = ['numero_comprobante'];
 
     protected $fillable = [
         'emisor_id',
@@ -38,7 +43,7 @@ class Factura extends Model
         'fecha_autorizacion',
         'numero_autorizacion',
         'mensajes_sri',
-        'xml_generado'
+        'xml_generado',
     ];
 
     public function emisor()
@@ -69,6 +74,11 @@ class Factura extends Model
     public function pagos()
     {
         return $this->hasMany(FacturaPago::class, 'factura_id');
+    }
+
+    public function notasCredito()
+    {
+        return $this->hasMany(NotaCredito::class, 'factura_modificada_id');
     }
 
     public function getNumeroComprobanteAttribute()

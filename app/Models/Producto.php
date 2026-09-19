@@ -75,10 +75,12 @@ class Producto extends Model
 
     public function getTarifaIvaPorcentajeAttribute()
     {
-        if ($this->codigo_iva === '2') {
+        if ($this->codigo_iva === '4') {
             return 15.0;
-        } elseif ($this->codigo_iva === '4') {
+        } elseif ($this->codigo_iva === '5') {
             return 5.0;
+        } elseif ($this->codigo_iva === '2') {
+            return 12.0;
         }
 
         return 0.0;
@@ -86,10 +88,12 @@ class Producto extends Model
 
     public function getIvaTextoAttribute()
     {
-        if ($this->codigo_iva === '2') {
+        if ($this->codigo_iva === '4') {
             return '15%';
-        } elseif ($this->codigo_iva === '4') {
+        } elseif ($this->codigo_iva === '5') {
             return '5%';
+        } elseif ($this->codigo_iva === '2') {
+            return '12%';
         }
 
         return '0%';

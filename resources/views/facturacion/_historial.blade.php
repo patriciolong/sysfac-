@@ -114,7 +114,7 @@
 
     @if(isset($facturas) && $facturas->hasPages())
     <div style="margin-top: 1rem;">
-        {{ $facturas->links('pagination::bootstrap-4') }}
+        {{ $facturas->links() }}
     </div>
     @endif
 </div>
@@ -129,7 +129,12 @@
         <div id="detalleFacturaBody" style="font-size: 0.9rem;">
             <p>Cargando detalles...</p>
         </div>
-        <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem; text-align: right;">
+        <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1rem; display: flex; justify-content: space-between;">
+            <div>
+                 <button type="button" id="btnReenviarCorreo" class="btn-card-action btn-primary" style="display: none;" onclick="reenviarCorreoFactura()">
+                     <i class="fa-solid fa-envelope"></i> Reenviar Correo
+                 </button>
+            </div>
             <button type="button" class="btn-card-action btn-secondary" onclick="closeModal('modalDetalleFactura')">Cerrar</button>
         </div>
     </div>
@@ -261,11 +266,49 @@
                 `;
                 
                 body.innerHTML = html;
+                
+                // Show resend email button
+                const btnReenviar = document.getElementById('btnReenviarCorreo');
+                btnReenviar.style.display = 'inline-block';
+                btnReenviar.setAttribute('onclick', `reenviarCorreoFactura(${id})`);
             } else {
                 body.innerHTML = `<p style="color: red;">Error: ${data.message}</p>`;
+                document.getElementById('btnReenviarCorreo').style.display = 'none';
             }
         } catch (err) {
             body.innerHTML = '<p style="color: red;">Ocurrió un error al cargar los datos.</p>';
+            document.getElementById('btnReenviarCorreo').style.display = 'none';
         }
+    }
+
+    async function reenviarCorreoFactura(id) {
+        if (!confirm('¿Estás seguro que deseas reenviar la factura por correo al cliente?')) return;
+        
+        const btn = document.getElementById('btnReenviarCorreo');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`/facturacion/${id}/reenviar-correo`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Correo enviado exitosamente.');
+            } else {
+                alert('Error: ' + data.message);
+            }
+        } catch (err) {
+            alert('Ocurrió un error al intentar enviar el correo.');
+        }
+
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 </script>

@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 class Bodega extends Model
 {
     protected $table = 'inventario_bodegas';
+
     public $timestamps = false;
 
     protected $fillable = [
         'nombre',
-        'ubicacion'
+        'ubicacion',
     ];
 
     public function inventarios()

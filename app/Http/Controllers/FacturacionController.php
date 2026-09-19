@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\FacturaCreada;
 use App\Models\CajaMovimiento;
 use App\Models\CajaTurno;
 use App\Models\Cliente;
+use App\Models\ConfiguracionEmpresa;
 use App\Models\Emisor;
 use App\Models\Factura;
 use App\Models\FacturaDetalle;
@@ -18,9 +20,25 @@ use App\Models\PuntoEmision;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class FacturacionController extends Controller
 {
+    private function getCodigoIvaPorTarifa($tarifa)
+    {
+        $map = [
+            0 => '0',
+            12 => '2',
+            14 => '3',
+            15 => '4',
+            5 => '5',
+            8 => '8',
+            13 => '10',
+        ];
+
+        return $map[(int) $tarifa] ?? '4';
+    }
+
     public function index(Request $request)
     {
         $productos = Producto::with(['categoria', 'inventarios'])
@@ -102,8 +120,9 @@ class FacturacionController extends Controller
 
         $facturas = $query->paginate(10)->appends($request->query());
         $pendientes = Factura::whereNotIn('estado_sri', ['AUTORIZADO', 'ANULADA'])->count();
+        $iva_defecto = ConfiguracionEmpresa::first()->iva_defecto ?? 15;
 
-        return view('facturacion.index', compact('productos', 'clientes', 'metodos_pago', 'secuencial_siguiente', 'facturas', 'pendientes'));
+        return view('facturacion.index', compact('productos', 'clientes', 'metodos_pago', 'secuencial_siguiente', 'facturas', 'pendientes', 'iva_defecto'));
     }
 
     public function show($id)
@@ -158,6 +177,8 @@ class FacturacionController extends Controller
             $kardexDetalles = [];
             $jsonDetalles = [];
 
+            $iva_defecto = ConfiguracionEmpresa::first()->iva_defecto ?? 15;
+
             foreach ($validated['items'] as $itemData) {
                 $prod = Producto::find($itemData['id']);
                 $qty = (float) $itemData['qty'];
@@ -166,6 +187,13 @@ class FacturacionController extends Controller
                 $subtotalSinImpuestos += $lineTotal;
 
                 $tarifaIva = $prod->tarifa_iva_porcentaje;
+                $codigoIva = $prod->codigo_iva;
+
+                if ($codigoIva !== '0') {
+                    $tarifaIva = $iva_defecto;
+                    $codigoIva = $this->getCodigoIvaPorTarifa($iva_defecto);
+                }
+
                 $lineIva = 0;
                 if ($tarifaIva > 0) {
                     $baseIva += $lineTotal;
@@ -184,7 +212,7 @@ class FacturacionController extends Controller
                     'precio_unitario' => $price,
                     'descuento' => 0.00,
                     'precio_total_sin_impuestos' => $lineTotal,
-                    'codigo_impuesto_iva' => $prod->codigo_iva,
+                    'codigo_impuesto_iva' => $codigoIva,
                     'tarifa_iva' => $tarifaIva,
                     'base_imponible_iva' => $lineTotal,
                     'valor_iva' => $lineIva,
@@ -199,7 +227,7 @@ class FacturacionController extends Controller
                     'precio_unitario' => $price,
                     'descuento' => 0,
                     'precio_total_sin_impuestos' => $lineTotal,
-                    'codigo_porcentaje_iva' => $prod->codigo_iva,
+                    'codigo_porcentaje_iva' => $codigoIva,
                     'tarifa_iva' => $tarifaIva,
                     'base_imponible' => $lineTotal,
                     'valor_iva' => $lineIva,
@@ -647,5 +675,23 @@ class FacturacionController extends Controller
         $pdf = Pdf::loadView('facturacion.pdf', compact('factura'));
 
         return $pdf->stream('RIDE_Factura_'.$factura->numero_comprobante.'.pdf');
+    }
+
+    public function reenviarCorreo($id)
+    {
+        try {
+            $factura = Factura::with('cliente')->findOrFail($id);
+            $cliente = $factura->cliente;
+
+            if (! $cliente || empty($cliente->correo)) {
+                return response()->json(['success' => false, 'message' => 'El cliente no tiene un correo configurado.']);
+            }
+
+            Mail::to($cliente->correo)->send(new FacturaCreada($factura));
+
+            return response()->json(['success' => true, 'message' => 'Correo reenviado exitosamente a '.$cliente->correo]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error al reenviar el correo: '.$e->getMessage()]);
+        }
     }
 }

@@ -9,6 +9,7 @@ use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FacturacionController;
 use App\Http\Controllers\KardexController;
+use App\Http\Controllers\NotaCreditoController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\ReporteController;
@@ -47,6 +48,17 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/facturacion/reautorizar', [FacturacionController::class, 'reautorizar'])->name('facturacion.reautorizar')->middleware('permission:Facturación,master');
     Route::get('/facturacion/{id}', [FacturacionController::class, 'show'])->name('facturacion.show')->middleware('permission:Facturación,lectura');
     Route::get('/facturacion/{id}/pdf', [FacturacionController::class, 'pdf'])->name('facturacion.pdf')->middleware('permission:Facturación,lectura');
+    Route::post('/facturacion/{id}/reenviar-correo', [FacturacionController::class, 'reenviarCorreo'])->name('facturacion.reenviarCorreo')->middleware('permission:Facturación,lectura');
+
+    // Notas de Crédito SRI
+    Route::get('/notas-credito', [NotaCreditoController::class, 'index'])->name('notas-credito.index')->middleware('permission:Facturación,lectura');
+    Route::get('/notas-credito/buscar-facturas', [NotaCreditoController::class, 'buscarFacturas'])->name('notas-credito.buscar-facturas')->middleware('permission:Facturación,lectura');
+    Route::get('/notas-credito/factura/{id}', [NotaCreditoController::class, 'getFactura'])->name('notas-credito.factura')->middleware('permission:Facturación,lectura');
+    Route::post('/notas-credito/emitir', [NotaCreditoController::class, 'store'])->name('notas-credito.emitir')->middleware('permission:Facturación,master');
+    Route::post('/notas-credito/reautorizar', [NotaCreditoController::class, 'reautorizar'])->name('notas-credito.reautorizar')->middleware('permission:Facturación,master');
+    Route::get('/notas-credito/{id}', [NotaCreditoController::class, 'show'])->name('notas-credito.show')->middleware('permission:Facturación,lectura');
+    Route::get('/notas-credito/{id}/pdf', [NotaCreditoController::class, 'pdf'])->name('notas-credito.pdf')->middleware('permission:Facturación,lectura');
+    Route::post('/notas-credito/{id}/reenviar-correo', [NotaCreditoController::class, 'reenviarCorreo'])->name('notas-credito.reenviarCorreo')->middleware('permission:Facturación,lectura');
 
     // Clientes
     Route::get('/clientes/export', [ClienteController::class, 'export'])->name('clientes.export')->middleware('permission:Clientes,lectura');
