@@ -7,12 +7,11 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['name', 'apellido', 'email', 'password', 'estado', 'ultimo_acceso', 'role_id'])]
 #[Hidden(['password', 'remember_token'])]
@@ -36,7 +35,7 @@ class User extends Authenticatable
      */
     public function hasPermission(string $modulo, string $nivelRequerido = 'lectura'): bool
     {
-        // Administrador principal tiene acceso a todo. 
+        // Administrador principal tiene acceso a todo.
         // Asumimos que el usuario ID 1 o con rol 'Administrador' es superadmin.
         if ($this->id === 1 || ($this->role && $this->role->nombre === 'Administrador')) {
             return true;
@@ -53,10 +52,10 @@ class User extends Authenticatable
             $nivelUsuario = $userPermiso->nivel;
         } else {
             // Si no tiene permiso específico, buscar el permiso del rol
-            if (!$this->role || $this->role->estado !== 'activo') {
+            if (! $this->role || $this->role->estado !== 'activo') {
                 return false;
             }
-            
+
             $rolePermiso = $this->role->permisos()->where('modulo', $modulo)->first();
             $nivelUsuario = $rolePermiso ? $rolePermiso->nivel : 'ninguno';
         }

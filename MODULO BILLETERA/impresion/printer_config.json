@@ -1,0 +1,13 @@
+{
+    "printers": [
+        "LR2000"
+    ],
+    "title": "ESTA ES UNA GIFT CARD DE DESCUENTO",
+    "discount": "TE REGALAMOS LOS ZAPATOS",
+    "details": "Valido hasta el 31/12. No acumulable.",
+    "width": 80,
+    "height": 80,
+    "is_thermal": true,
+    "print_mode": "RAW/ESC-POS (Spooler Windows)",
+    "printer": "LR2000"
+}

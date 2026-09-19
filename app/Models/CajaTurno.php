@@ -23,14 +23,14 @@ class CajaTurno extends Model
         'diferencia',
         'fecha_cierre',
         'observaciones',
-        'estado'
+        'estado',
     ];
 
     public function puntoEmision()
     {
         return $this->belongsTo(PuntoEmision::class, 'punto_emision_id');
     }
-    
+
     public function caja()
     {
         return $this->belongsTo(Caja::class, 'caja_id');
@@ -40,7 +40,7 @@ class CajaTurno extends Model
     {
         return $this->belongsTo(Usuario::class, 'usuario_id');
     }
-    
+
     public function movimientos()
     {
         return $this->hasMany(CajaMovimiento::class, 'caja_turno_id');

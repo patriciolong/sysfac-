@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\ConfiguracionEmpresa;
-use App\Models\PuntoEmision;
 use App\Models\MetodoPago;
-use Illuminate\Support\Facades\Storage;
+use App\Models\PuntoEmision;
+use Illuminate\Http\Request;
 
 class ConfiguracionController extends Controller
 {
@@ -21,7 +20,7 @@ class ConfiguracionController extends Controller
             'regimen_rimpe' => $emisorModel ? $emisorModel->regimen_rimpe : 'NO APLICA',
             'ambiente_sri' => $emisorModel ? $emisorModel->ambiente_sri : 1,
             'firma_ruta' => $emisorModel ? $emisorModel->firma_ruta : '',
-            'firma_clave' => $emisorModel ? $emisorModel->firma_clave : ''
+            'firma_clave' => $emisorModel ? $emisorModel->firma_clave : '',
         ];
 
         $puntos_emision = PuntoEmision::all()->map(function ($p) {
@@ -31,7 +30,7 @@ class ConfiguracionController extends Controller
                 'punto_emision' => $p->punto_emision,
                 'secuencial_factura' => $p->secuencial_factura,
                 'secuencial_nota_credito' => $p->secuencial_nota_credito,
-                'estado' => $p->estado
+                'estado' => $p->estado,
             ];
         });
 
@@ -40,7 +39,7 @@ class ConfiguracionController extends Controller
                 'id' => $m->id,
                 'codigo' => $m->codigo_sri,
                 'nombre' => $m->nombre,
-                'estado' => $m->estado
+                'estado' => $m->estado,
             ];
         });
 
@@ -57,12 +56,12 @@ class ConfiguracionController extends Controller
             'regimen_rimpe' => 'nullable|string',
             'ambiente_sri' => 'nullable|integer|in:1,2',
             'firma_archivo' => 'nullable|file|mimes:p12,pfx|max:2048',
-            'firma_clave' => 'nullable|string'
+            'firma_clave' => 'nullable|string',
         ]);
 
         $emisor = ConfiguracionEmpresa::first();
-        if (!$emisor) {
-            $emisor = new ConfiguracionEmpresa();
+        if (! $emisor) {
+            $emisor = new ConfiguracionEmpresa;
         }
 
         $emisor->ruc = $validated['ruc'] ?? $emisor->ruc;
@@ -78,7 +77,7 @@ class ConfiguracionController extends Controller
 
         if ($request->hasFile('firma_archivo')) {
             $file = $request->file('firma_archivo');
-            $filename = time() . '_' . $file->getClientOriginalName();
+            $filename = time().'_'.$file->getClientOriginalName();
             $path = $file->storeAs('firmas', $filename, 'local');
             $emisor->firma_ruta = $path;
         }

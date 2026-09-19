@@ -38,7 +38,7 @@ class Factura extends Model
         'fecha_autorizacion',
         'numero_autorizacion',
         'mensajes_sri',
-        'xml_generado'
+        'xml_generado',
     ];
 
     public function emisor()

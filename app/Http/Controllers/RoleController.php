@@ -12,6 +12,7 @@ class RoleController extends Controller
     public function index()
     {
         $roles = Role::paginate(15);
+
         return view('roles.index', compact('roles'));
     }
 
@@ -73,9 +74,9 @@ class RoleController extends Controller
         }
 
         $modulos = [
-            'Facturación', 'Caja', 'Productos', 'Compras', 
-            'Kardex', 'Clientes', 'Proveedores', 'Reportes', 
-            'Configuración', 'Usuarios'
+            'Facturación', 'Caja', 'Productos', 'Compras',
+            'Kardex', 'Clientes', 'Proveedores', 'Reportes',
+            'Configuración', 'Usuarios',
         ];
 
         $rolePermisos = $role->permisos->keyBy('modulo');
@@ -98,7 +99,7 @@ class RoleController extends Controller
                 RolePermiso::create([
                     'role_id' => $role->id,
                     'modulo' => $modulo,
-                    'nivel' => $nivel
+                    'nivel' => $nivel,
                 ]);
             }
         }

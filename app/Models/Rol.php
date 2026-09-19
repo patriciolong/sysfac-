@@ -7,15 +7,16 @@ use Illuminate\Database\Eloquent\Model;
 class Rol extends Model
 {
     protected $table = 'usuarios_roles';
+
     public $timestamps = false;
 
     protected $fillable = [
         'nombre',
-        'permisos_json'
+        'permisos_json',
     ];
 
     protected $casts = [
-        'permisos_json' => 'array'
+        'permisos_json' => 'array',
     ];
 
     public function usuarios()

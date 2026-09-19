@@ -144,4 +144,140 @@
     </div>
 </div>
 
+<!-- CARD 4: SERVIDOR DE IMPRESIÓN TÉRMICA SYSFACT_PRINTER -->
+<div class="data-card" style="margin-top: 1.15rem; border-left: 4px solid #2563eb;">
+    <div class="data-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+            <h2><i class="fa-solid fa-print text-primary"></i> Servidor de Impresión Térmica (SysFact_Printer)</h2>
+            <p style="margin: 0; font-size: 0.825rem; color: var(--text-muted);">Servicio de impresión directa por puerto 8080 para ticketeras térmicas USB, Red y Bluetooth (ESC/POS / GDI).</p>
+        </div>
+        <div>
+            <a href="{{ route('facturacion.descargarServidor') }}" class="btn-card-action btn-primary btn-sm">
+                <i class="fa-solid fa-download"></i> Descargar SysFact_Printer.exe
+            </a>
+        </div>
+    </div>
+
+    <div style="padding: 1.25rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+            
+            <!-- Estado del servicio -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+                <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 0.5rem; color: #334155;">
+                    <i class="fa-solid fa-network-wired text-primary"></i> Estado de Conexión Local
+                </div>
+                <div id="cfgPrinterStatusBox" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <span id="cfgPrinterBadge" class="badge badge-warning" style="font-size: 0.82rem; padding: 0.4rem 0.75rem;">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Verificando servidor (127.0.0.1:8080)...
+                    </span>
+                </div>
+                <div style="font-size: 0.8rem; color: #64748b;">
+                    <div>Impresora seleccionada: <strong id="cfgPrinterName">Buscando...</strong></div>
+                    <div>Puerto HTTP: <strong>8080</strong> &bull; Protocolo: <strong>REST JSON</strong></div>
+                </div>
+            </div>
+
+            <!-- Acciones de prueba -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem;">
+                <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 0.5rem; color: #334155;">
+                    <i class="fa-solid fa-bolt text-warning"></i> Pruebas de Hardware POS
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    <button type="button" class="btn-card-action btn-secondary btn-sm" onclick="checkConfigPrinterStatus()">
+                        <i class="fa-solid fa-rotate"></i> Probar Conexión
+                    </button>
+                    <button type="button" class="btn-card-action btn-primary btn-sm" onclick="cfgTestPrint()">
+                        <i class="fa-solid fa-receipt"></i> Test Imprimir Ticket
+                    </button>
+                    <button type="button" class="btn-card-action btn-success btn-sm" onclick="cfgOpenDrawer()">
+                        <i class="fa-solid fa-cash-register"></i> Abrir Gaveta
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Instrucciones de Uso -->
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1rem; font-size: 0.825rem; color: #1e40af;">
+            <div style="font-weight: 700; margin-bottom: 0.35rem;"><i class="fa-solid fa-circle-info"></i> ¿Cómo funciona el servidor de impresión SysFact_Printer?</div>
+            <ol style="margin-left: 1.25rem; margin-bottom: 0;">
+                <li>Descargue el archivo <strong>SysFact_Printer.exe</strong> y ejecútelo en la computadora que tiene conectada la ticketera.</li>
+                <li>Seleccione su impresora térmica en la ventana y el modo de impresión (ESC/POS directo o Driver de Windows).</li>
+                <li>El programa se minimizará en la barra de tareas (junto al reloj). A partir de ese momento, todas las facturas y arqueos de caja se imprimirán de forma instantánea y silenciosa.</li>
+            </ol>
+        </div>
+    </div>
+</div>
+
 @endsection
+
+@push('scripts')
+<script>
+    const PRINT_SERVER_URL = 'http://127.0.0.1:8080';
+
+    async function checkConfigPrinterStatus() {
+        const badge = document.getElementById('cfgPrinterBadge');
+        const nameEl = document.getElementById('cfgPrinterName');
+
+        badge.className = 'badge badge-secondary';
+        badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Consultando...';
+
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+            const res = await fetch(`${PRINT_SERVER_URL}/status`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            const data = await res.json();
+
+            if (data && data.status === 'online') {
+                badge.className = 'badge badge-success';
+                badge.style.background = '#dcfce7';
+                badge.style.color = '#15803d';
+                badge.innerHTML = '<i class="fa-solid fa-check"></i> Servidor SysFact_Printer En Línea';
+                nameEl.innerText = data.printer || 'Predeterminada de Windows';
+            } else {
+                throw new Error('Offline');
+            }
+        } catch (e) {
+            badge.className = 'badge badge-warning';
+            badge.style.background = '#fef3c7';
+            badge.style.color = '#b45309';
+            badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Servidor Desconectado';
+            nameEl.innerText = 'No conectado';
+        }
+    }
+
+    async function cfgTestPrint() {
+        try {
+            const res = await fetch(`${PRINT_SERVER_URL}/test_print`, { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                alert('✅ Ticket de prueba enviado exitosamente a la ticketera.');
+            } else {
+                alert('⚠️ Error al imprimir: ' + (data.message || 'Desconocido'));
+            }
+        } catch (e) {
+            alert('⚠️ No se pudo conectar con SysFact_Printer en http://127.0.0.1:8080. Verifique que el programa esté abierto.');
+        }
+    }
+
+    async function cfgOpenDrawer() {
+        try {
+            const res = await fetch(`${PRINT_SERVER_URL}/open_drawer`, { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                alert('✅ Pulso de apertura enviado a la gaveta de dinero.');
+            } else {
+                alert('⚠️ Error: ' + (data.message || 'Desconocido'));
+            }
+        } catch (e) {
+            alert('⚠️ No se pudo conectar con SysFact_Printer en http://127.0.0.1:8080.');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        checkConfigPrinterStatus();
+    });
+</script>
+@endpush

@@ -8,6 +8,7 @@ use App\Models\InventarioGeneral;
 use App\Models\Movimiento;
 use App\Models\MovimientoDetalle;
 use App\Models\Producto;
+use App\Services\ExcelImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -420,5 +421,140 @@ class ProductoController extends Controller
 
             fclose($handle);
         }, 200, $headers);
+    }
+
+    public function importExcel(Request $request, ExcelImportService $excelService)
+    {
+        $request->validate([
+            'excel_file' => 'required|file|max:10240',
+            'bodega_id' => 'nullable|exists:inventario_bodegas,id',
+            'actualizar_existentes' => 'nullable',
+        ]);
+
+        try {
+            $file = $request->file('excel_file');
+            $bodegaId = $request->filled('bodega_id') ? (int) $request->bodega_id : 1;
+            $actualizarExistentes = $request->has('actualizar_existentes') && in_array($request->actualizar_existentes, ['1', 1, true, 'true', 'on'], true);
+
+            $items = $excelService->parseProductosCatalogo($file);
+            $bodegas = Bodega::all();
+
+            $creados = 0;
+            $actualizados = 0;
+
+            DB::transaction(function () use ($items, $bodegas, $bodegaId, $actualizarExistentes, &$creados, &$actualizados) {
+                foreach ($items as $item) {
+                    // Buscar o crear categoría
+                    $categoria = Categoria::firstOrCreate(
+                        ['nombre' => trim($item['categoria'])],
+                        ['estado' => 'ACTIVO']
+                    );
+
+                    $producto = Producto::where('codigo_principal', $item['codigo_principal'])->first();
+
+                    if ($producto) {
+                        if ($actualizarExistentes) {
+                            $producto->nombre = $item['nombre'];
+                            if (! empty($item['codigo_auxiliar'])) {
+                                $producto->codigo_auxiliar = $item['codigo_auxiliar'];
+                            }
+                            $producto->categoria_id = $categoria->id;
+                            $producto->tipo_producto = $item['tipo_producto'];
+                            $producto->precio_unitario = $item['precio_unitario'];
+                            if ($item['costo_promedio'] > 0) {
+                                $producto->costo_promedio = $item['costo_promedio'];
+                            }
+                            $producto->codigo_iva = $item['codigo_iva'];
+                            $producto->save();
+
+                            $actualizados++;
+                        }
+                    } else {
+                        $producto = Producto::create([
+                            'categoria_id' => $categoria->id,
+                            'codigo_principal' => $item['codigo_principal'],
+                            'codigo_auxiliar' => $item['codigo_auxiliar'],
+                            'nombre' => $item['nombre'],
+                            'tipo_producto' => $item['tipo_producto'],
+                            'precio_unitario' => $item['precio_unitario'],
+                            'costo_promedio' => $item['costo_promedio'],
+                            'codigo_iva' => $item['codigo_iva'],
+                            'estado' => 'ACTIVO',
+                        ]);
+
+                        // Asignar stock en bodegas
+                        if ($bodegas->isEmpty()) {
+                            InventarioGeneral::create([
+                                'bodega_id' => 1,
+                                'producto_id' => $producto->id,
+                                'stock_actual' => $item['stock_inicial'],
+                                'stock_minimo' => $item['stock_minimo'],
+                            ]);
+                        } else {
+                            foreach ($bodegas as $b) {
+                                $qty = ($b->id == $bodegaId) ? $item['stock_inicial'] : 0.0;
+                                InventarioGeneral::create([
+                                    'bodega_id' => $b->id,
+                                    'producto_id' => $producto->id,
+                                    'stock_actual' => $qty,
+                                    'stock_minimo' => $item['stock_minimo'],
+                                ]);
+                            }
+                        }
+
+                        // Registrar Kardex inicial si stock > 0
+                        if ($item['stock_inicial'] > 0 && $item['tipo_producto'] === 'BIEN') {
+                            $mov = Movimiento::create([
+                                'bodega_id' => $bodegaId,
+                                'tipo_movimiento_id' => 5, // AJUSTE INGRESO / INICIAL
+                                'usuario_id' => auth()->id() ?? 1,
+                                'fecha_movimiento' => now(),
+                                'referencia' => 'IMP-EXCEL-'.strtoupper($producto->codigo_principal),
+                                'observaciones' => 'Carga masiva desde archivo Excel',
+                            ]);
+
+                            MovimientoDetalle::create([
+                                'movimiento_id' => $mov->id,
+                                'producto_id' => $producto->id,
+                                'cantidad' => $item['stock_inicial'],
+                                'costo_unitario' => $item['costo_promedio'],
+                                'costo_total' => round($item['stock_inicial'] * $item['costo_promedio'], 2),
+                            ]);
+                        }
+
+                        $creados++;
+                    }
+                }
+            });
+
+            $total = count($items);
+            $msg = "Se procesaron {$total} productos exitosamente: {$creados} nuevos registrados y {$actualizados} actualizados.";
+
+            if ($request->wantsJson() || $request->ajax() || $request->isXmlHttpRequest()) {
+                return response()->json([
+                    'success' => true,
+                    'total' => $total,
+                    'creados' => $creados,
+                    'actualizados' => $actualizados,
+                    'message' => $msg,
+                ]);
+            }
+
+            return redirect()->route('productos.index')->with('success', $msg);
+        } catch (\Exception $e) {
+            if ($request->wantsJson() || $request->ajax() || $request->isXmlHttpRequest()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+
+            return redirect()->route('productos.index')->with('error', 'Error al importar productos: '.$e->getMessage());
+        }
+    }
+
+    public function descargarPlantillaExcel(ExcelImportService $excelService): StreamedResponse
+    {
+        return $excelService->generarPlantillaProductos();
     }
 }

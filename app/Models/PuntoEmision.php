@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PuntoEmision extends Model
 {
     protected $table = 'configuracion_puntos_emision';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -18,7 +19,7 @@ class PuntoEmision extends Model
         'secuencial_guia_remision',
         'secuencial_retencion',
         'secuencial_liquidacion_compra',
-        'estado'
+        'estado',
     ];
 
     public function emisor()
@@ -34,6 +35,7 @@ class PuntoEmision extends Model
     public function getSiguienteSecuencialFacturaFormattedAttribute()
     {
         $sec = str_pad($this->secuencial_factura, 9, '0', STR_PAD_LEFT);
+
         return "{$this->establecimiento}-{$this->punto_emision}-{$sec}";
     }
 }

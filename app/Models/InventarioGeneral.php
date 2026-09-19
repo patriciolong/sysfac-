@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class InventarioGeneral extends Model
 {
     protected $table = 'inventario_general';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -15,7 +16,7 @@ class InventarioGeneral extends Model
         'stock_actual',
         'stock_minimo',
         'stock_maximo',
-        'ultima_actualizacion'
+        'ultima_actualizacion',
     ];
 
     public function bodega()
