@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Usuario extends Model
 {
     protected $table = 'usuarios_usuario';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -17,7 +18,7 @@ class Usuario extends Model
         'apellidos',
         'correo',
         'password_hash',
-        'estado'
+        'estado',
     ];
 
     public function rol()

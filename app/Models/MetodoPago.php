@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 class MetodoPago extends Model
 {
     protected $table = 'configuracion_metodos_pago';
+
     public $timestamps = false;
 
     protected $fillable = [
         'codigo_sri',
         'nombre',
-        'estado'
+        'estado',
     ];
 
     public function getIconoAttribute()

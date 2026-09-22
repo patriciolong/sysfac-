@@ -37,10 +37,16 @@
             <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">Administre precios, costos, existencias por bodega y controle los márgenes comerciales en tiempo real.</p>
         </div>
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <a href="{{ route('productos.export', request()->query()) }}" class="btn-card-action btn-secondary btn-sm" title="Descargar Catálogo en formato Excel/CSV">
+            <a href="{{ route('productos.export', request()->query()) }}" class="btn-card-action btn-secondary btn-sm" title="Descargar Catálogo en formato CSV">
                 <i class="fa-solid fa-file-csv text-success"></i> Exportar CSV
             </a>
             @if(auth()->user()->hasPermission('Productos', 'master'))
+                <a href="{{ route('productos.plantillaExcel') }}" class="btn-card-action btn-secondary btn-sm" title="Descargar plantilla Excel (.xlsx) para carga masiva">
+                    <i class="fa-solid fa-file-excel" style="color: #107c41;"></i> Plantilla Excel (.xlsx)
+                </a>
+                <button class="btn-card-action btn-secondary btn-sm" onclick="openModal('modalImportarExcelProductos')" title="Importar catálogo masivamente desde archivo Excel (.xlsx)">
+                    <i class="fa-solid fa-file-arrow-up text-primary"></i> Importar Excel (.xlsx)
+                </button>
                 <button class="btn-card-action btn-secondary btn-sm" onclick="openModal('modalNuevaCategoria')">
                     <i class="fa-solid fa-folder-plus text-primary"></i> Nueva Categoría
                 </button>
@@ -523,6 +529,67 @@
     </div>
 </div>
 
+<!-- ========================================== -->
+<!-- MODAL: IMPORTAR PRODUCTOS DESDE EXCEL      -->
+<!-- ========================================== -->
+<div class="modal-backdrop" id="modalImportarExcelProductos">
+    <div class="modal-content" style="max-width: 560px;">
+        <div class="modal-header">
+            <h2><i class="fa-solid fa-file-excel" style="color: #107c41;"></i> Carga Masiva de Productos (Excel .xlsx)</h2>
+            <button class="btn-close" onclick="closeModal('modalImportarExcelProductos')">&times;</button>
+        </div>
+
+        <form id="formImportarExcelProductos" onsubmit="ejecutarImportacionProductos(event)">
+            @csrf
+
+            <div style="background: var(--bg-muted); border-left: 4px solid #107c41; padding: 0.85rem 1.15rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.82rem; line-height: 1.45;">
+                <strong><i class="fa-solid fa-circle-info text-primary"></i> Instrucciones de Carga:</strong>
+                <ul style="margin: 0.35rem 0 0 1.2rem; padding: 0;">
+                    <li>Descargue la <a href="{{ route('productos.plantillaExcel') }}" style="color: #107c41; font-weight: 700; text-decoration: underline;"><i class="fa-solid fa-download"></i> Plantilla Excel (.xlsx)</a> con el formato preconfigurado.</li>
+                    <li>Columnas: <code>codigo_principal</code>, <code>codigo_auxiliar</code>, <code>nombre_producto</code>, <code>categoria</code>, <code>tipo_producto</code> (BIEN/SERVICIO), <code>costo_promedio</code>, <code>precio_unitario</code>, <code>tarifa_iva</code>, <code>stock_inicial</code> y <code>stock_minimo</code>.</li>
+                    <li>Si una categoría no existe en el sistema, será creada automáticamente.</li>
+                </ul>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.15rem;">
+                <label class="form-label">Archivo Excel (.xlsx / .xls) <span class="text-danger">*</span></label>
+                <div style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 1.5rem; text-align: center; background: #fafafa;" id="dropzoneExcel">
+                    <i class="fa-solid fa-file-excel text-success" style="font-size: 2.25rem; margin-bottom: 0.5rem; display: block;"></i>
+                    <input type="file" name="excel_file" id="inputExcelProductos" accept=".xlsx,.xls,.csv" required style="display: block; margin: 0 auto 0.5rem auto; font-size: 0.85rem;">
+                    <span style="font-size: 0.76rem; color: var(--text-muted);">Formato nativo de Microsoft Excel (.xlsx) soportado</span>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 1.15rem;">
+                <div class="form-group">
+                    <label class="form-label">Bodega para Stock Inicial</label>
+                    <select name="bodega_id" class="form-control">
+                        @foreach($bodegas as $b)
+                            <option value="{{ $b->id }}">{{ $b->nombre }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="form-group" style="display: flex; flex-direction: column; justify-content: flex-end;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; margin-bottom: 0.5rem;">
+                        <input type="checkbox" name="actualizar_existentes" value="1" checked style="width: 1.1rem; height: 1.1rem;">
+                        <span>Actualizar datos si el código ya existe</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="resultadoImportacionProductos" style="display: none; margin-bottom: 1.15rem; font-size: 0.85rem; padding: 0.85rem; border-radius: var(--radius-sm);"></div>
+
+            <div style="display: flex; gap: 0.65rem; justify-content: flex-end; margin-top: 1rem;">
+                <button type="button" class="btn-card-action btn-secondary" onclick="closeModal('modalImportarExcelProductos')">Cancelar</button>
+                <button type="submit" class="btn-card-action btn-success" id="btnEjecutarImportExcel">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Importar Productos
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -724,6 +791,79 @@
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-check"></i> Guardar Categoría';
             alert('Error de conexión al guardar categoría.');
+        });
+    }
+
+    function ejecutarImportacionProductos(event) {
+        event.preventDefault();
+        const form = document.getElementById('formImportarExcelProductos');
+        const fileInput = document.getElementById('inputExcelProductos');
+        const btn = document.getElementById('btnEjecutarImportExcel');
+        const resBox = document.getElementById('resultadoImportacionProductos');
+
+        if (!fileInput.files || !fileInput.files[0]) {
+            alert('Por favor seleccione un archivo Excel (.xlsx)');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Procesando Excel...';
+        resBox.style.display = 'none';
+
+        const formData = new FormData(form);
+
+        fetch('{{ route("productos.importExcel") }}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(async (res) => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Importar Productos';
+
+            let body = null;
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                body = await res.json();
+            } else {
+                const text = await res.text();
+                body = { success: false, message: 'Respuesta del servidor: ' + text.substring(0, 300) };
+            }
+
+            if (res.ok && body.success) {
+                resBox.style.display = 'block';
+                resBox.style.background = 'var(--success-light)';
+                resBox.style.borderLeft = '4px solid var(--success)';
+                resBox.style.color = '#065f46';
+                resBox.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>¡Importación exitosa!</strong> ${body.message}<br><small>Recargando listado...</small>`;
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                let errorMsg = body.message || 'Error al procesar el archivo Excel.';
+                if (body.errors) {
+                    const errList = Object.values(body.errors).flat().join('<br>');
+                    errorMsg += `<br><small>${errList}</small>`;
+                }
+                resBox.style.display = 'block';
+                resBox.style.background = 'var(--danger-light)';
+                resBox.style.borderLeft = '4px solid var(--danger)';
+                resBox.style.color = '#991b1b';
+                resBox.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> <strong>Error:</strong> ${errorMsg}`;
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Importar Productos';
+            resBox.style.display = 'block';
+            resBox.style.background = 'var(--danger-light)';
+            resBox.style.borderLeft = '4px solid var(--danger)';
+            resBox.style.color = '#991b1b';
+            resBox.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Error de conexión: ${err.message}`;
         });
     }
 </script>

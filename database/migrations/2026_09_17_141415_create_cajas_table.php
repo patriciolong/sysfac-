@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('nombre');
             $table->string('codigo')->unique()->nullable();
             $table->string('sucursal')->nullable();
-            $table->integer('usuario_id')->nullable(); 
+            $table->integer('usuario_id')->nullable();
             $table->integer('punto_emision_id')->nullable();
             $table->text('descripcion')->nullable();
             $table->enum('estado', ['ACTIVA', 'INACTIVA', 'CERRADA', 'BLOQUEADA'])->default('ACTIVA');

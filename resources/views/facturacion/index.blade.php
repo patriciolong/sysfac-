@@ -15,13 +15,19 @@
                 Factura SRI Nº: <strong id="topSecuencial" style="color: var(--primary);">{{ $secuencial_siguiente }}</strong> &bull; Emisión: <strong>NORMAL</strong>
             </p>
         </div>
-        <div style="display: flex; gap: 0.65rem; align-items: center;">
+        <div style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap;">
             <button class="btn-card-action btn-secondary btn-sm" onclick="openModal('modalCliente')">
                 <i class="fa-solid fa-user-plus"></i> Nuevo Cliente
             </button>
             <span class="badge badge-success">
                 <i class="fa-solid fa-wifi"></i> SRI CONECTADO
             </span>
+            <span id="ticketeraStatusPill" class="badge" style="background: #e2e8f0; color: #475569; font-weight: 600; cursor: pointer;" onclick="checkTicketeraStatus(true)" title="Clic para verificar conexión con SysFact_Printer">
+                <i class="fa-solid fa-spinner fa-spin"></i> Verificando Ticketera...
+            </span>
+            <a href="{{ route('facturacion.descargarServidor') }}" class="btn-card-action btn-secondary btn-sm" title="Descargar ejecutable SysFact_Printer.exe">
+                <i class="fa-solid fa-download"></i> Servidor .exe
+            </a>
         </div>
     </div>
 </div>
@@ -245,28 +251,43 @@
 
 <!-- MODAL FACTURA AUTORIZADA SRI EXITO -->
 <div class="modal-backdrop" id="modalFacturaExitosa">
-    <div class="modal-content" style="text-align: center; max-width: 480px;">
+    <div class="modal-content" style="text-align: center; max-width: 520px;">
         <div style="width: 56px; height: 56px; background: #ecfdf5; color: #059669; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 0.85rem auto;">
             <i class="fa-solid fa-circle-check"></i>
         </div>
         <h2 style="font-size: 1.35rem; color: #059669; margin-bottom: 0.25rem;">¡Factura Autorizada con Éxito!</h2>
-        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1rem;">
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 0.75rem;">
             Comprobante Nº: <strong id="modalComprobanteNum">{{ $secuencial_siguiente }}</strong> registrado en el SRI.
         </p>
         
+        <div id="printServerNotify" style="margin-bottom: 0.75rem; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 6px; background: #eff6ff; color: #1e40af; display: none;">
+            <i class="fa-solid fa-print"></i> <span id="printServerNotifyText">Enviando ticket a impresora térmica...</span>
+        </div>
+
         <div style="background: #f8fafc; padding: 0.85rem 1rem; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 1.15rem; text-align: left; font-size: 0.825rem;">
-            <p style="margin-bottom: 0.3rem;">Clave Acceso: <span id="modalClaveAcceso" style="font-family: monospace; font-size: 0.775rem; word-break: break-all; color: var(--text-main);">1509202601179294820100110010010000001861234567819</span></p>
+            <p style="margin-bottom: 0.3rem;">Clave Acceso: <span id="modalClaveAcceso" style="font-family: monospace; font-size: 0.775rem; word-break: break-all; color: var(--text-main);"></span></p>
             <p style="margin-bottom: 0.3rem;">Estado SRI: <strong style="color: #059669;">AUTORIZADO</strong></p>
             <p style="margin: 0;">Mensaje: <span style="color: var(--text-muted);">AUTORIZACION REGISTRADA EN EL SRI EXITOSAMENTE.</span></p>
         </div>
 
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-bottom: 0.75rem;">
+            <button type="button" class="btn-card-action btn-primary" onclick="imprimirUltimaFacturaDirecta()">
+                <i class="fa-solid fa-receipt"></i> Imprimir Ticket Térmico
+            </button>
+            <button type="button" class="btn-card-action btn-secondary" onclick="abrirTicketWeb()">
+                <i class="fa-solid fa-file-invoice"></i> Ver Ticket Web (80mm)
+            </button>
+        </div>
+
         <div style="display: flex; gap: 0.65rem;">
-            <button class="btn-card-action btn-primary" style="flex: 1;" onclick="alert('Imprimiendo comprobante térmico...'); closeModal('modalFacturaExitosa'); clearCart();">
-                <i class="fa-solid fa-print"></i> Imprimir Ticket
+            <button type="button" class="btn-card-action btn-secondary" style="flex: 1;" onclick="closeModal('modalFacturaExitosa'); clearCart();">
+                <i class="fa-solid fa-cart-plus"></i> Nueva Venta
             </button>
-            <button class="btn-card-action btn-secondary" onclick="closeModal('modalFacturaExitosa'); clearCart();">
-                Nueva Venta
-            </button>
+        </div>
+
+        <div style="margin-top: 0.85rem; font-size: 0.75rem; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 0.5rem;">
+            <span>💡 Impresión directa requiere <strong>SysFact_Printer</strong> ejecutándose en Windows.</span>
+            <a href="{{ route('facturacion.descargarServidor') }}" style="color: var(--primary); font-weight: 600; text-decoration: underline; margin-left: 4px;">Descargar .exe</a>
         </div>
     </div>
 </div>
@@ -278,8 +299,141 @@
     let cart = [];
     let selectedPaymentId = 1;
     let currentCategory = 'TODOS';
+    let lastTicketData = null;
+    let lastFacturaId = null;
+    let isTicketeraOnline = false;
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const LOCAL_PRINT_SERVER = 'http://127.0.0.1:8080';
+
+    // Check status of local print server
+    async function checkTicketeraStatus(showNotify = false) {
+        const pill = document.getElementById('ticketeraStatusPill');
+        if (pill) {
+            pill.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
+        }
+
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+            const res = await fetch(`${LOCAL_PRINT_SERVER}/status`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            const data = await res.json();
+
+            if (data && data.status === 'online') {
+                isTicketeraOnline = true;
+                if (pill) {
+                    pill.className = 'badge badge-success';
+                    pill.style.background = '#dcfce7';
+                    pill.style.color = '#15803d';
+                    pill.title = `Servidor conectado: ${data.printer || 'Predeterminada'}`;
+                    pill.innerHTML = `<i class="fa-solid fa-print"></i> Ticketera: ${data.printer ? data.printer.substring(0, 15) : 'Conectada'}`;
+                }
+                if (showNotify) {
+                    alert(`✅ SysFact_Printer conectado en ${LOCAL_PRINT_SERVER}\nImpresora activa: ${data.printer || 'Predeterminada de Windows'}`);
+                }
+            } else {
+                setTicketeraOffline(showNotify);
+            }
+        } catch (e) {
+            setTicketeraOffline(showNotify);
+        }
+    }
+
+    function setTicketeraOffline(showNotify = false) {
+        isTicketeraOnline = false;
+        const pill = document.getElementById('ticketeraStatusPill');
+        if (pill) {
+            pill.className = 'badge badge-warning';
+            pill.style.background = '#fef3c7';
+            pill.style.color = '#b45309';
+            pill.title = 'Servidor SysFact_Printer desconectado. Clic para reintentar o descargar .exe';
+            pill.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Ticketera Offline';
+        }
+        if (showNotify) {
+            if (confirm('⚠️ No se detectó SysFact_Printer en http://127.0.0.1:8080.\n\n¿Desea descargar el programa ejecutable SysFact_Printer.exe para imprimir directo en tickets térmicos?')) {
+                window.location.href = "{{ route('facturacion.descargarServidor') }}";
+            }
+        }
+    }
+
+    // Auto-check on DOM loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        checkTicketeraStatus(false);
+    });
+
+    // Enviar impresión directa a ticketera
+    async function enviarImpresionTicketera(ticketData, isAuto = false) {
+        const notifyBox = document.getElementById('printServerNotify');
+        const notifyText = document.getElementById('printServerNotifyText');
+
+        if (notifyBox) {
+            notifyBox.style.display = 'block';
+            notifyBox.className = 'alert alert-info';
+            notifyBox.style.background = '#eff6ff';
+            notifyBox.style.color = '#1e40af';
+            notifyText.innerText = 'Enviando comando a ticketera local...';
+        }
+
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+            const res = await fetch(`${LOCAL_PRINT_SERVER}/print_factura`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ticketData),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            const result = await res.json();
+            if (result && result.status === 'ok') {
+                if (notifyBox) {
+                    notifyBox.style.background = '#ecfdf5';
+                    notifyBox.style.color = '#065f46';
+                    notifyText.innerHTML = '✅ <strong>Ticket impreso correctamente en ticketera física.</strong>';
+                }
+                return true;
+            } else {
+                throw new Error(result.message || 'Error desconocido del servidor de impresión');
+            }
+        } catch (err) {
+            console.warn('SysFact_Printer local print error:', err);
+            if (notifyBox) {
+                notifyBox.style.background = '#fef2f2';
+                notifyBox.style.color = '#991b1b';
+                notifyText.innerHTML = '⚠️ No se pudo imprimir directo (SysFact_Printer offline). Puede usar "Ver Ticket Web".';
+            }
+            if (!isAuto) {
+                alert('⚠️ No se pudo enviar el ticket a la ticketera física. Verifique que SysFact_Printer esté abierto o use "Ver Ticket Web (80mm)".');
+            }
+            return false;
+        }
+    }
+
+    function imprimirUltimaFacturaDirecta() {
+        if (lastTicketData) {
+            enviarImpresionTicketera(lastTicketData, false);
+        } else if (lastFacturaId) {
+            fetch(`/facturacion/factura/${lastFacturaId}/ticket-data`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        lastTicketData = d.ticket_data;
+                        enviarImpresionTicketera(lastTicketData, false);
+                    }
+                });
+        }
+    }
+
+    function abrirTicketWeb() {
+        if (lastFacturaId) {
+            const url = `/facturacion/factura/${lastFacturaId}/ticket-html`;
+            window.open(url, '_blank', 'width=450,height=650,menubar=no,toolbar=no,location=no');
+        }
+    }
 
     function switchPosView(viewType) {
         const tableView = document.getElementById('posTableView');
@@ -420,12 +574,21 @@
             const data = await response.json();
 
             if (data.success) {
+                lastFacturaId = data.factura_id;
+                lastTicketData = data.ticket_data;
+
                 document.getElementById('modalComprobanteNum').innerText = data.comprobante;
                 document.getElementById('modalClaveAcceso').innerText = data.clave_acceso;
                 if (data.siguiente_secuencial) {
                     document.getElementById('topSecuencial').innerText = data.siguiente_secuencial;
                 }
+
                 openModal('modalFacturaExitosa');
+
+                // Enviar automáticamente a ticketera si hay datos
+                if (data.ticket_data) {
+                    enviarImpresionTicketera(data.ticket_data, true);
+                }
             } else {
                 alert('Error al emitir factura: ' + (data.message || 'Error desconocido'));
             }
@@ -511,3 +674,4 @@
     }
 </script>
 @endpush
+

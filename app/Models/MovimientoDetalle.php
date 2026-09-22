@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class MovimientoDetalle extends Model
 {
     protected $table = 'inventario_movimientos_detalles';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -14,7 +15,7 @@ class MovimientoDetalle extends Model
         'producto_id',
         'cantidad',
         'costo_unitario',
-        'costo_total'
+        'costo_total',
     ];
 
     public function movimiento()

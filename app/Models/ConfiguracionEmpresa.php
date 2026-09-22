@@ -14,6 +14,6 @@ class ConfiguracionEmpresa extends Model
         'regimen_rimpe',
         'firma_ruta',
         'firma_clave',
-        'ambiente_sri'
+        'ambiente_sri',
     ];
 }

@@ -505,10 +505,12 @@
                         </td>
                         <td>
                             @if($h->estado === 'CERRADA' || $h->estado === 'ABIERTA')
-                                <a href="{{ route('caja.reporte', $h->id) }}" target="_blank" class="btn-card-action btn-sm btn-primary" title="Imprimir Reporte"><i class="fa-solid fa-print"></i> Reporte</a>
+                                <button type="button" onclick="imprimirTicketCaja({{ $h->id }})" class="btn-card-action btn-sm btn-primary" title="Imprimir en Ticketera Térmica"><i class="fa-solid fa-receipt"></i> Ticket</button>
+                                <a href="{{ route('caja.turnoTicketHtml', $h->id) }}" target="_blank" class="btn-card-action btn-sm btn-secondary" title="Ver Ticket Web 80mm"><i class="fa-solid fa-file-invoice"></i></a>
+                                <a href="{{ route('caja.reporte', $h->id) }}" target="_blank" class="btn-card-action btn-sm btn-secondary" title="Descargar PDF Completo"><i class="fa-solid fa-file-pdf"></i></a>
                                 <form action="{{ route('caja.anularTurno', $h->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Está seguro de anular esta sesión de caja? Esta acción no se puede deshacer.');">
                                     @csrf
-                                    <button type="submit" class="btn-card-action btn-sm btn-danger" title="Anular"><i class="fa-solid fa-ban"></i> Anular</button>
+                                    <button type="submit" class="btn-card-action btn-sm btn-danger" title="Anular"><i class="fa-solid fa-ban"></i></button>
                                 </form>
                             @else
                                 <span style="color:gray;"><i class="fa-solid fa-ban"></i> Anulada</span>
@@ -647,5 +649,38 @@
         </div>
     </div>
 @endif
+
+@push('scripts')
+<script>
+    async function imprimirTicketCaja(turnoId) {
+        try {
+            const res = await fetch(`/caja/turno/${turnoId}/ticket-data`);
+            const data = await res.json();
+            if (!data.success) {
+                alert('No se pudieron obtener los datos de la sesión.');
+                return;
+            }
+
+            const printRes = await fetch('http://127.0.0.1:8080/print_cierre_caja', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data.ticket_data)
+            });
+
+            const printJson = await printRes.json();
+            if (printJson.status === 'ok') {
+                alert('✅ Comprobante de cierre enviado correctamente a la ticketera.');
+            } else {
+                alert('⚠️ Error de impresión: ' + (printJson.message || 'Desconocido'));
+            }
+        } catch (e) {
+            console.warn('Print server offline:', e);
+            if (confirm('⚠️ SysFact_Printer no está en ejecución en http://127.0.0.1:8080.\n\n¿Desea abrir el ticket web para imprimir desde el navegador?')) {
+                window.open(`/caja/turno/${turnoId}/ticket-html`, '_blank', 'width=450,height=650');
+            }
+        }
+    }
+</script>
+@endpush
 
 @endsection

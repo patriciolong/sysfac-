@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class FacturaDetalle extends Model
 {
     protected $table = 'ventas_detalles_factura';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -22,7 +23,7 @@ class FacturaDetalle extends Model
         'codigo_impuesto_iva',
         'tarifa_iva',
         'base_imponible_iva',
-        'valor_iva'
+        'valor_iva',
     ];
 
     public function factura()

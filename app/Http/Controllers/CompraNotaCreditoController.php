@@ -11,8 +11,11 @@ use App\Models\Movimiento;
 use App\Models\MovimientoDetalle;
 use App\Models\Producto;
 use App\Models\Proveedor;
+use App\Services\ExcelImportService;
+use App\Services\SriXmlParserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CompraNotaCreditoController extends Controller
@@ -182,6 +185,10 @@ class CompraNotaCreditoController extends Controller
                 'observaciones' => $nc->observaciones ?? '',
                 'usuario' => $nc->nombre_usuario,
                 'movimiento_id' => $nc->movimiento_id,
+                'xml_path' => $nc->xml_path,
+                'xml_nombre_original' => $nc->xml_nombre_original,
+                'has_xml' => ! empty($nc->xml_path) && Storage::disk('public')->exists($nc->xml_path),
+                'xml_download_url' => route('compras.notas-credito.descargarXml', $nc->id),
                 'created_at' => $nc->created_at ? $nc->created_at->format('d/m/Y H:i') : 'N/A',
                 'detalles' => $nc->detalles->map(fn ($d) => [
                     'id' => $d->id,
@@ -208,6 +215,8 @@ class CompraNotaCreditoController extends Controller
             'motivo' => 'required|string|max:300',
             'tipo_modificacion' => 'required|in:DEVOLUCION_MERCADERIA,DESCUENTO_VALOR',
             'observaciones' => 'nullable|string|max:500',
+            'xml_path' => 'nullable|string|max:255',
+            'xml_nombre_original' => 'nullable|string|max:255',
             'detalles' => 'required|array|min:1',
             'detalles.*.producto_id' => 'required|exists:inventario_productos,id',
             'detalles.*.cantidad' => 'required|numeric|min:0.0001',
@@ -219,6 +228,17 @@ class CompraNotaCreditoController extends Controller
             $bodegaId = $compra->bodega_id;
             $proveedorId = $compra->proveedor_id;
             $tipoModificacion = $validated['tipo_modificacion'];
+
+            $xmlPath = $validated['xml_path'] ?? null;
+            $xmlNombreOriginal = $validated['xml_nombre_original'] ?? null;
+
+            if ($request->hasFile('xml_file')) {
+                $file = $request->file('xml_file');
+                $xmlNombreOriginal = $file->getClientOriginalName();
+                $safeName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $xmlNombreOriginal);
+                $filename = 'nc_xml_'.uniqid().'_'.time().'_'.$safeName;
+                $xmlPath = $file->storeAs('xmls/notas_credito', $filename, 'public');
+            }
 
             // Compute already returned quantity per product
             $returnedPerProduct = [];
@@ -246,23 +266,23 @@ class CompraNotaCreditoController extends Controller
                 }
 
                 $originalQty = (float) $compraItems[$prodId]->cantidad;
-                $alreadyReturned = $returnedPerProduct[$prodId] ?? 0.0;
-                $maxAvailable = round($originalQty - $alreadyReturned, 4);
+                $prevReturned = $returnedPerProduct[$prodId] ?? 0.0;
+                $maxReturnable = max(0.0, round($originalQty - $prevReturned, 4));
 
-                if ($qty > $maxAvailable + 0.0001) {
-                    abort(422, "La cantidad a devolver del producto ({$qty}) excede la cantidad disponible de la compra ({$maxAvailable}).");
+                if ($qty > ($maxReturnable + 0.0001)) {
+                    abort(422, "La cantidad a devolver ({$qty}) excede la cantidad disponible de la factura ({$maxReturnable}) para el producto ID {$prodId}.");
                 }
 
-                $prod = Producto::findOrFail($prodId);
                 $lineTotal = round($qty * $costUnit, 2);
                 $subtotalSinImpuestos += $lineTotal;
 
-                $tarifaIva = $prod->tarifa_iva_porcentaje;
+                $prod = Producto::find($prodId);
+                $tarifaIva = $prod ? (float) $prod->tarifa_iva_porcentaje : 0.0;
                 $lineIva = ($tarifaIva > 0) ? round($lineTotal * ($tarifaIva / 100), 2) : 0.0;
                 $totalIva += $lineIva;
 
                 $itemsProcessed[] = [
-                    'producto' => $prod,
+                    'producto' => $prod ?: $compraItems[$prodId]->producto,
                     'cantidad' => $qty,
                     'costo_unitario' => $costUnit,
                     'costo_total' => $lineTotal,
@@ -323,6 +343,8 @@ class CompraNotaCreditoController extends Controller
                 'subtotal_sin_impuestos' => $subtotalSinImpuestos,
                 'iva' => $totalIva,
                 'total' => $total,
+                'xml_path' => $xmlPath,
+                'xml_nombre_original' => $xmlNombreOriginal,
                 'observaciones' => $validated['observaciones'] ?? "Nota de crédito sobre factura #{$compra->numero_factura}",
                 'estado' => 'EMITIDA',
             ]);
@@ -485,5 +507,80 @@ class CompraNotaCreditoController extends Controller
 
             fclose($handle);
         }, 200, $headers);
+    }
+
+    public function parseXml(Request $request, SriXmlParserService $parser)
+    {
+        $request->validate([
+            'xml_file' => 'required|file|max:5120',
+        ]);
+
+        try {
+            $file = $request->file('xml_file');
+            $originalName = $file->getClientOriginalName();
+            $content = file_get_contents($file->getRealPath());
+            $resultado = $parser->parseNotaCreditoXml($content);
+
+            // Store XML in public storage for persistence
+            $safeName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $originalName);
+            $filename = 'nc_xml_'.uniqid().'_'.time().'_'.$safeName;
+            $path = $file->storeAs('xmls/notas_credito', $filename, 'public');
+
+            return response()->json([
+                'success' => true,
+                'data' => $resultado,
+                'xml_path' => $path,
+                'xml_nombre_original' => $originalName,
+                'message' => 'Nota de crédito XML del SRI procesada y guardada correctamente.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function descargarXml($id)
+    {
+        $nc = CompraNotaCredito::findOrFail($id);
+
+        if (! $nc->xml_path || ! Storage::disk('public')->exists($nc->xml_path)) {
+            return back()->with('error', 'El archivo XML asociado a esta Nota de Crédito no se encuentra disponible.');
+        }
+
+        $nombreDescarga = $nc->xml_nombre_original ?: "Nota_Credito_{$nc->numero_nota_credito}.xml";
+
+        return Storage::disk('public')->download($nc->xml_path, $nombreDescarga);
+    }
+
+    public function parseExcel(Request $request, ExcelImportService $excelService)
+    {
+        $request->validate([
+            'excel_file' => 'required|file|max:10240',
+            'compra_id' => 'nullable|exists:compras_facturas,id',
+        ]);
+
+        try {
+            $file = $request->file('excel_file');
+            $compraId = $request->filled('compra_id') ? (int) $request->compra_id : null;
+            $resultado = $excelService->parseDetallesNotaCredito($file, $compraId);
+
+            return response()->json([
+                'success' => true,
+                'data' => $resultado,
+                'message' => 'Detalle de Nota de Crédito importado desde Excel correctamente.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function descargarPlantillaExcel(ExcelImportService $excelService): StreamedResponse
+    {
+        return $excelService->generarPlantillaNotaCredito();
     }
 }

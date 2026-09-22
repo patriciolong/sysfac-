@@ -19,6 +19,8 @@ class Compra extends Model
         'iva',
         'total',
         'observaciones',
+        'xml_path',
+        'xml_nombre_original',
     ];
 
     public function proveedor()

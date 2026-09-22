@@ -255,6 +255,13 @@
                                 <i class="fa-solid fa-eye text-primary"></i>
                             </button>
 
+                            <!-- Descargar XML SRI -->
+                            @if(!empty($nc->xml_path))
+                                <a href="{{ route('compras.notas-credito.descargarXml', $nc->id) }}" class="btn-card-action btn-secondary btn-sm" title="Descargar XML SRI ({{ $nc->xml_nombre_original ?: 'Nota_Credito.xml' }})" style="padding: 4px 7px; color: var(--primary);">
+                                    <i class="fa-solid fa-file-code"></i>
+                                </a>
+                            @endif
+
                             <!-- Anular NC -->
                             @if($nc->estado === 'EMITIDA' && auth()->user()->hasPermission('Compras', 'master'))
                                 <button type="button" class="btn-card-action btn-secondary btn-sm" onclick="confirmarAnulacionNC({{ $nc->id }}, '{{ $nc->numero_nota_credito }}')" title="Anular nota de crédito y restituir stock" style="padding: 4px 7px;">
@@ -297,6 +304,37 @@
 
         <form action="{{ route('compras.notas-credito.store') }}" method="POST" id="formNuevaNotaCredito">
             @csrf
+            <input type="hidden" name="xml_path" id="nc_xml_path" value="">
+            <input type="hidden" name="xml_nombre_original" id="nc_xml_nombre_original" value="">
+
+            <!-- Barra de Carga Rápida Automatizada (XML SRI & Excel) -->
+            <div style="background: var(--bg-muted); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; margin-bottom: 0.85rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem;">
+                    <i class="fa-solid fa-cloud-arrow-up text-danger"></i>
+                    <span>Carga Rápida Automatizada:</span>
+                </div>
+                <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
+                    <!-- Input File XML Oculto -->
+                    <input type="file" id="inputXmlNC" accept=".xml" style="display: none;" onchange="procesarXmlNC(this)">
+                    <button type="button" class="btn-card-action btn-secondary btn-sm" id="btnUploadXmlNC" onclick="document.getElementById('inputXmlNC').click()" title="Cargar XML de Nota de Crédito SRI (Autocompleta No. NC, motivo, factura modificada y cantidades)">
+                        <i class="fa-solid fa-file-code text-danger"></i> Subir XML SRI NC
+                    </button>
+
+                    <!-- Input File Excel Oculto -->
+                    <input type="file" id="inputExcelNC" accept=".xlsx,.xls" style="display: none;" onchange="procesarExcelNC(this)">
+                    <button type="button" class="btn-card-action btn-secondary btn-sm" id="btnUploadExcelNC" onclick="document.getElementById('inputExcelNC').click()" title="Importar lista de devoluciones desde archivo Excel (.xlsx)">
+                        <i class="fa-solid fa-file-excel text-success"></i> Subir Excel (.xlsx)
+                    </button>
+
+                    <!-- Descargar Plantilla -->
+                    <a href="{{ route('compras.notas-credito.plantillaExcel') }}" class="btn-card-action btn-secondary btn-sm" title="Descargar plantilla de Excel (.xlsx) de ejemplo para Notas de Crédito" style="color: var(--text-muted);">
+                        <i class="fa-solid fa-file-excel text-success"></i> Plantilla Excel (.xlsx)
+                    </a>
+                </div>
+            </div>
+
+            <!-- Banner Alerta de Importación NC -->
+            <div id="bannerImportNC" style="display: none; padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); margin-bottom: 0.85rem; font-size: 0.8rem;"></div>
 
             <!-- STEP 1: FACTURA DE ORIGEN -->
             <div style="background: var(--bg-muted); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1rem;">
@@ -334,7 +372,7 @@
 
                 <div>
                     <label class="form-label" style="font-size: 0.78rem;">Fecha de Emisión <span style="color:var(--danger)">*</span></label>
-                    <input type="date" name="fecha_emision" class="form-control" value="{{ date('Y-m-d') }}" required>
+                    <input type="date" name="fecha_emision" id="nc_fecha_emision" class="form-control" value="{{ date('Y-m-d') }}" required>
                 </div>
 
                 <div>
@@ -347,31 +385,37 @@
 
                 <div>
                     <label class="form-label" style="font-size: 0.78rem;">Autorización SRI (Opcional)</label>
-                    <input type="text" name="autorizacion_sri" class="form-control" placeholder="49 dígitos numéricos" maxlength="49" style="font-family: monospace;">
+                    <input type="text" name="autorizacion_sri" id="nc_autorizacion_sri" class="form-control" placeholder="49 dígitos numéricos" maxlength="49" style="font-family: monospace;">
                 </div>
 
                 <div style="grid-column: span 2;">
                     <label class="form-label" style="font-size: 0.78rem;">Motivo de la Nota de Crédito <span style="color:var(--danger)">*</span></label>
-                    <input type="text" name="motivo" class="form-control" placeholder="Ej: Devolución por producto deteriorado / vencido / error de despacho" required>
+                    <input type="text" name="motivo" id="nc_motivo" class="form-control" placeholder="Ej: Devolución por producto deteriorado / vencido / error de despacho" required>
                 </div>
 
                 <div style="grid-column: span 2;">
                     <label class="form-label" style="font-size: 0.78rem;">Observaciones Internas</label>
-                    <input type="text" name="observaciones" class="form-control" placeholder="Notas adicionales de control interno">
+                    <input type="text" name="observaciones" id="nc_observaciones" class="form-control" placeholder="Notas adicionales de control interno">
                 </div>
             </div>
 
-            <!-- STEP 3: ITEMS TABLE -->
+            <!-- STEP 3: ITEMS TABLE CON BUSCADOR -->
             <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 1rem;">
-                <div style="background: var(--bg-muted); padding: 0.5rem 0.85rem; font-weight: 700; font-size: 0.82rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between;">
-                    <span><i class="fa-solid fa-boxes-stacked text-danger"></i> 3. Artículos a Devolver / Descontar</span>
-                    <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">Especifique la cantidad a devolver por producto</span>
+                <div style="background: var(--bg-muted); padding: 0.5rem 0.85rem; font-weight: 700; font-size: 0.82rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span><i class="fa-solid fa-boxes-stacked text-danger"></i> 3. Artículos a Devolver / Descontar</span>
+                        <span id="contadorItemsNC" class="badge badge-secondary" style="font-size: 0.72rem;">0 ítems</span>
+                    </div>
+                    <div style="position: relative; width: 230px;">
+                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%); font-size: 0.75rem; color: var(--text-muted);"></i>
+                        <input type="text" id="buscadorItemsNuevaNC" class="form-control form-control-sm" placeholder="Buscar producto en factura..." oninput="filtrarItemsNuevaNC(this.value)" style="padding-left: 1.85rem; font-size: 0.78rem; height: 28px;">
+                    </div>
                 </div>
 
                 <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
-                    <table class="custom-table" style="font-size: 0.82rem;">
+                    <table class="custom-table" style="font-size: 0.82rem; margin: 0;" id="tablaItemsNuevaNC">
                         <thead>
-                            <tr>
+                            <tr style="background: var(--bg-muted);">
                                 <th>#</th>
                                 <th>Producto</th>
                                 <th style="text-align: center;">Comprado</th>
@@ -449,10 +493,21 @@
             </div>
         </div>
 
-        <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 1rem;">
-            <table class="custom-table" style="font-size: 0.82rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <h3 style="font-size: 0.9rem; margin: 0;"><i class="fa-solid fa-boxes-stacked text-danger"></i> Productos Devueltos / Descontados</h3>
+                <span id="contadorDetalleNCView" class="badge badge-secondary" style="font-size: 0.72rem;">0 ítems</span>
+            </div>
+            <div style="position: relative; width: 230px;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%); font-size: 0.75rem; color: var(--text-muted);"></i>
+                <input type="text" id="buscadorDetalleNC" class="form-control form-control-sm" placeholder="Buscar por código o producto..." oninput="filtrarDetalleNC(this.value)" style="padding-left: 1.85rem; font-size: 0.78rem; height: 28px;">
+            </div>
+        </div>
+
+        <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 1rem; max-height: 260px; overflow-y: auto;">
+            <table class="custom-table" style="font-size: 0.82rem; margin: 0;" id="tablaDetalleNCView">
                 <thead>
-                    <tr>
+                    <tr style="background: var(--bg-muted);">
                         <th>Código</th>
                         <th>Producto</th>
                         <th style="text-align: center;">Cantidad</th>
@@ -482,7 +537,8 @@
             </div>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 0.85rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div id="v_nc_xml_container"></div>
             <button type="button" class="btn-card-action btn-secondary" onclick="closeModal('modalDetalleNotaCredito')">Cerrar</button>
         </div>
     </div>
@@ -520,10 +576,11 @@
 @push('scripts')
 <script>
     function abrirModalNuevaNC() {
+        document.getElementById('bannerImportNC').style.display = 'none';
         openModal('modalNuevaNotaCredito');
     }
 
-    function cargarDetallesCompra(compraId) {
+    function cargarDetallesCompra(compraId, onLoadedCallback = null) {
         if (!compraId) {
             document.getElementById('compra_info_box').style.display = 'none';
             document.getElementById('nc_items_body').innerHTML = `
@@ -548,12 +605,229 @@
                     document.getElementById('compra_info_box').style.display = 'block';
 
                     renderNCItems(c.items);
+
+                    if (typeof onLoadedCallback === 'function') {
+                        onLoadedCallback(c);
+                    }
                 }
             })
             .catch(err => {
                 console.error('Error al cargar compra:', err);
                 alert('No se pudo cargar la información de la factura de compra.');
             });
+    }
+
+    function procesarXmlNC(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const btn = document.getElementById('btnUploadXmlNC');
+        const banner = document.getElementById('bannerImportNC');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Leyendo XML...';
+
+        const formData = new FormData();
+        formData.append('xml_file', file);
+        formData.append('_token', '{{ csrf_token() }}');
+
+        fetch('{{ route("compras.notas-credito.parseXml") }}', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-file-code text-danger"></i> Subir XML SRI NC';
+            input.value = '';
+
+            if (data.success) {
+                const res = data.data;
+                const nc = res.nota_credito;
+                const prov = res.proveedor;
+                const compraMod = res.compra_modificada;
+                const detalles = res.detalles;
+
+                // Guardar referencia del archivo XML persistido
+                if (data.xml_path) {
+                    document.getElementById('nc_xml_path').value = data.xml_path;
+                }
+                if (data.xml_nombre_original) {
+                    document.getElementById('nc_xml_nombre_original').value = data.xml_nombre_original;
+                }
+
+                // 1. Asignar campos de la NC
+                if (nc.numero_nota_credito) {
+                    document.getElementById('nc_numero').value = nc.numero_nota_credito;
+                }
+                if (nc.fecha_emision) {
+                    document.getElementById('nc_fecha_emision').value = nc.fecha_emision;
+                }
+                if (nc.autorizacion_sri) {
+                    document.getElementById('nc_autorizacion_sri').value = nc.autorizacion_sri;
+                }
+                if (nc.motivo) {
+                    document.getElementById('nc_motivo').value = nc.motivo;
+                }
+                if (nc.observaciones) {
+                    document.getElementById('nc_observaciones').value = nc.observaciones;
+                }
+
+                // 2. Asociar y seleccionar factura modificada
+                const selectCompra = document.getElementById('nc_compra_id');
+                let compraEncontrada = false;
+
+                if (compraMod.found && compraMod.id) {
+                    selectCompra.value = compraMod.id;
+                    compraEncontrada = true;
+                    cargarDetallesCompra(compraMod.id, () => {
+                        aplicarCantidadesDevueltas(detalles);
+                    });
+                } else if (nc.num_doc_modificado) {
+                    // Buscar coincidencia en el select
+                    const opt = Array.from(selectCompra.options).find(o => o.text.includes(nc.num_doc_modificado));
+                    if (opt) {
+                        selectCompra.value = opt.value;
+                        compraEncontrada = true;
+                        cargarDetallesCompra(opt.value, () => {
+                            aplicarCantidadesDevueltas(detalles);
+                        });
+                    }
+                }
+
+                // 3. Mostrar banner informativo
+                banner.style.display = 'block';
+                banner.style.background = 'var(--success-light)';
+                banner.style.borderLeft = '4px solid var(--success)';
+                banner.style.color = '#065f46';
+
+                let compraMsg = compraEncontrada
+                    ? `Factura de origen <strong>#${compraMod.numero_factura || nc.num_doc_modificado}</strong> seleccionada automáticamente.`
+                    : `<span style="color: var(--warning);"><i class="fa-solid fa-triangle-exclamation"></i> Factura origen <strong>#${nc.num_doc_modificado}</strong> no encontrada en compras. Por favor seleccione la factura manualmente en el paso 1.</span>`;
+
+                banner.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <div><i class="fa-solid fa-circle-check"></i> <strong>XML SRI de Nota de Crédito procesado:</strong> #${nc.numero_nota_credito}</div>
+                            <div style="font-size: 0.75rem; margin-top: 0.2rem;">${compraMsg}</div>
+                            <div style="font-size: 0.75rem; margin-top: 0.1rem;">Proveedor: <strong>${prov.razon_social}</strong> (RUC: ${prov.identificacion}) | Total NC: <strong>$${parseFloat(nc.total).toFixed(2)}</strong></div>
+                        </div>
+                        <button type="button" onclick="this.parentElement.parentElement.style.display='none'" style="background:none; border:none; color:#065f46; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                `;
+            } else {
+                banner.style.display = 'block';
+                banner.style.background = 'var(--danger-light)';
+                banner.style.borderLeft = '4px solid var(--danger)';
+                banner.style.color = '#991b1b';
+                banner.innerHTML = `<div><i class="fa-solid fa-circle-exclamation"></i> Error al leer XML de Nota de Crédito: ${data.message}</div>`;
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-file-code text-danger"></i> Subir XML SRI NC';
+            input.value = '';
+            alert('Error de conexión al procesar el archivo XML.');
+        });
+    }
+
+    function procesarExcelNC(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const btn = document.getElementById('btnUploadExcelNC');
+        const banner = document.getElementById('bannerImportNC');
+        const compraId = document.getElementById('nc_compra_id').value;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Leyendo Excel...';
+
+        const formData = new FormData();
+        formData.append('excel_file', file);
+        if (compraId) {
+            formData.append('compra_id', compraId);
+        }
+        formData.append('_token', '{{ csrf_token() }}');
+
+        fetch('{{ route("compras.notas-credito.parseExcel") }}', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-file-excel text-success"></i> Subir Excel (.xlsx)';
+            input.value = '';
+
+            if (data.success) {
+                const items = data.data.items;
+                aplicarCantidadesDevueltas(items);
+
+                banner.style.display = 'block';
+                banner.style.background = 'var(--success-light)';
+                banner.style.borderLeft = '4px solid var(--success)';
+                banner.style.color = '#065f46';
+                banner.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <i class="fa-solid fa-circle-check"></i> <strong>Excel (.xlsx) importado:</strong> Se aplicaron las cantidades a devolver de <strong>${items.length}</strong> productos en la tabla.
+                        </div>
+                        <button type="button" onclick="this.parentElement.parentElement.style.display='none'" style="background:none; border:none; color:#065f46; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                `;
+            } else {
+                banner.style.display = 'block';
+                banner.style.background = 'var(--danger-light)';
+                banner.style.borderLeft = '4px solid var(--danger)';
+                banner.style.color = '#991b1b';
+                banner.innerHTML = `<div><i class="fa-solid fa-circle-exclamation"></i> Error al importar Excel: ${data.message}</div>`;
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-file-excel text-success"></i> Subir Excel (.xlsx)';
+            input.value = '';
+            alert('Error de conexión al procesar el archivo Excel.');
+        });
+    }
+
+    function aplicarCantidadesDevueltas(items) {
+        if (!items || items.length === 0) return;
+
+        const inputsQty = document.querySelectorAll('.input-nc-qty');
+        let matchedCount = 0;
+
+        items.forEach(item => {
+            const itemCode = (item.codigo || '').trim().toLowerCase();
+            const itemNombre = (item.nombre || item.descripcion || '').trim().toLowerCase();
+            const itemProdId = item.producto_id || item.matched_producto_id;
+
+            inputsQty.forEach(input => {
+                const tr = input.closest('tr');
+                const rowProdId = tr.querySelector('input[name*="[producto_id]"]')?.value;
+                const rowNombre = tr.querySelector('strong')?.innerText.trim().toLowerCase();
+                const rowCode = tr.querySelector('div[style*="font-family: monospace"]')?.innerText.trim().toLowerCase();
+
+                let isMatch = false;
+                if (itemProdId && rowProdId && itemProdId == rowProdId) {
+                    isMatch = true;
+                } else if (itemCode && rowCode && (itemCode === rowCode || rowCode.includes(itemCode) || itemCode.includes(rowCode))) {
+                    isMatch = true;
+                } else if (itemNombre && rowNombre && (itemNombre === rowNombre || rowNombre.includes(itemNombre) || itemNombre.includes(rowNombre))) {
+                    isMatch = true;
+                }
+
+                if (isMatch) {
+                    const max = parseFloat(input.getAttribute('data-max')) || 0;
+                    const wanted = parseFloat(item.cantidad) || 0;
+                    input.value = Math.min(wanted, max);
+                    onQtyChange(input);
+                    matchedCount++;
+                }
+            });
+        });
+
+        calcularTotalesNC();
     }
 
     function renderNCItems(items) {
@@ -598,7 +872,49 @@
             tbody.appendChild(tr);
         });
 
+        const countBadge = document.getElementById('contadorItemsNC');
+        if (countBadge) {
+            countBadge.innerText = `${items.length} ítems`;
+        }
+        const searchInput = document.getElementById('buscadorItemsNuevaNC');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
         calcularTotalesNC();
+    }
+
+    function filtrarItemsNuevaNC(query) {
+        query = (query || '').toLowerCase().trim();
+        const rows = document.querySelectorAll('#nc_items_body tr');
+        let visibles = 0;
+        let totalValidas = 0;
+
+        rows.forEach(tr => {
+            if (tr.id === 'noResultsNuevaNC') return;
+            totalValidas++;
+            const text = tr.innerText.toLowerCase();
+            const coincide = !query || text.includes(query);
+            tr.style.display = coincide ? '' : 'none';
+            if (coincide) visibles++;
+        });
+
+        const badge = document.getElementById('contadorItemsNC');
+        if (badge) {
+            badge.innerText = query ? `${visibles} de ${totalValidas} ítems` : `${totalValidas} ítems`;
+        }
+
+        let noResults = document.getElementById('noResultsNuevaNC');
+        if (visibles === 0 && totalValidas > 0) {
+            if (!noResults) {
+                noResults = document.createElement('tr');
+                noResults.id = 'noResultsNuevaNC';
+                noResults.innerHTML = `<td colspan="9" style="text-align: center; color: var(--text-muted); padding: 1.5rem;"><i class="fa-solid fa-magnifying-glass"></i> No se encontraron productos que coincidan con "<strong>${query}</strong>".</td>`;
+                document.getElementById('nc_items_body').appendChild(noResults);
+            }
+        } else if (noResults) {
+            noResults.remove();
+        }
     }
 
     function onQtyChange(input) {
@@ -695,6 +1011,23 @@
                     document.getElementById('v_iva').innerText = '$' + parseFloat(nc.iva).toFixed(2);
                     document.getElementById('v_total').innerText = '$' + parseFloat(nc.total).toFixed(2);
 
+                    const badgeDetalle = document.getElementById('contadorDetalleNCView');
+                    if (badgeDetalle) {
+                        badgeDetalle.innerText = `${nc.detalles.length} ítems`;
+                    }
+
+                    const xmlContainer = document.getElementById('v_nc_xml_container');
+                    if (xmlContainer) {
+                        xmlContainer.innerHTML = nc.has_xml
+                            ? `<a href="${nc.xml_download_url}" class="btn-card-action btn-secondary btn-sm" style="color: var(--primary);" title="Descargar XML SRI original"><i class="fa-solid fa-file-code"></i> Descargar XML SRI</a>`
+                            : '';
+                    }
+
+                    const searchNC = document.getElementById('buscadorDetalleNC');
+                    if (searchNC) {
+                        searchNC.value = '';
+                    }
+
                     openModal('modalDetalleNotaCredito');
                 }
             })
@@ -702,6 +1035,39 @@
                 console.error(err);
                 alert('Error al obtener los detalles de la Nota de Crédito');
             });
+    }
+
+    function filtrarDetalleNC(query) {
+        query = (query || '').toLowerCase().trim();
+        const rows = document.querySelectorAll('#v_detalles_body tr');
+        let visibles = 0;
+        let totalValidas = 0;
+
+        rows.forEach(tr => {
+            if (tr.id === 'noResultsDetalleNC') return;
+            totalValidas++;
+            const text = tr.innerText.toLowerCase();
+            const coincide = !query || text.includes(query);
+            tr.style.display = coincide ? '' : 'none';
+            if (coincide) visibles++;
+        });
+
+        const badge = document.getElementById('contadorDetalleNCView');
+        if (badge) {
+            badge.innerText = query ? `${visibles} de ${totalValidas} ítems` : `${totalValidas} ítems`;
+        }
+
+        let noResults = document.getElementById('noResultsDetalleNC');
+        if (visibles === 0 && totalValidas > 0) {
+            if (!noResults) {
+                noResults = document.createElement('tr');
+                noResults.id = 'noResultsDetalleNC';
+                noResults.innerHTML = `<td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;"><i class="fa-solid fa-magnifying-glass"></i> No se encontraron productos que coincidan con "<strong>${query}</strong>".</td>`;
+                document.getElementById('v_detalles_body').appendChild(noResults);
+            }
+        } else if (noResults) {
+            noResults.remove();
+        }
     }
 
     function confirmarAnulacionNC(id, numero) {

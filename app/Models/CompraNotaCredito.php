@@ -27,6 +27,8 @@ class CompraNotaCredito extends Model
         'total',
         'observaciones',
         'estado',
+        'xml_path',
+        'xml_nombre_original',
     ];
 
     protected $casts = [

@@ -23,7 +23,7 @@ class CajaMovimiento extends Model
         'venta_id',
         'fecha_hora',
         'comprobante',
-        'observaciones'
+        'observaciones',
     ];
 
     public function turno()

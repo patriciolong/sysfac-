@@ -15,7 +15,7 @@ class CajaDesglose extends Model
         'tipo_moneda',
         'denominacion',
         'cantidad',
-        'subtotal'
+        'subtotal',
     ];
 
     public function turno()

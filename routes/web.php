@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BodegaController;
 use App\Http\Controllers\CajaController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\CompraController;
@@ -44,6 +45,9 @@ Route::middleware(['auth'])->group(function () {
     // Facturación POS
     Route::get('/facturacion', [FacturacionController::class, 'index'])->middleware('permission:Facturación,lectura');
     Route::post('/facturacion/emitir', [FacturacionController::class, 'store'])->middleware('permission:Facturación,master');
+    Route::get('/facturacion/factura/{id}/ticket-data', [FacturacionController::class, 'getTicketData'])->name('facturacion.ticketData')->middleware('permission:Facturación,lectura');
+    Route::get('/facturacion/factura/{id}/ticket-html', [FacturacionController::class, 'ticketHtml'])->name('facturacion.ticketHtml')->middleware('permission:Facturación,lectura');
+    Route::get('/facturacion/descargar-servidor', [FacturacionController::class, 'descargarServidor'])->name('facturacion.descargarServidor');
 
     // Clientes
     Route::get('/clientes/export', [ClienteController::class, 'export'])->name('clientes.export')->middleware('permission:Clientes,lectura');
@@ -58,6 +62,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Productos & Stock
     Route::get('/productos/export', [ProductoController::class, 'export'])->name('productos.export')->middleware('permission:Productos,lectura');
+    Route::get('/productos/plantilla-excel', [ProductoController::class, 'descargarPlantillaExcel'])->name('productos.plantillaExcel')->middleware('permission:Productos,lectura');
+    Route::post('/productos/import-excel', [ProductoController::class, 'importExcel'])->name('productos.importExcel')->middleware('permission:Productos,master');
     Route::get('/productos/{id}', [ProductoController::class, 'show'])->name('productos.show')->middleware('permission:Productos,lectura');
     Route::get('/productos', [ProductoController::class, 'index'])->name('productos.index')->middleware('permission:Productos,lectura');
     Route::post('/productos', [ProductoController::class, 'store'])->name('productos.store')->middleware('permission:Productos,master');
@@ -66,14 +72,33 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/productos/{id}', [ProductoController::class, 'destroy'])->name('productos.destroy')->middleware('permission:Productos,master');
     Route::post('/productos/categoria', [ProductoController::class, 'categoriaStore'])->name('productos.categoriaStore')->middleware('permission:Productos,master');
 
+    // Bodegas / Almacenes
+    Route::get('/bodegas/export', [BodegaController::class, 'export'])->name('bodegas.export')->middleware('permission:Productos,lectura');
+    Route::get('/bodegas/{id}', [BodegaController::class, 'show'])->name('bodegas.show')->middleware('permission:Productos,lectura');
+    Route::get('/bodegas', [BodegaController::class, 'index'])->name('bodegas.index')->middleware('permission:Productos,lectura');
+    Route::post('/bodegas', [BodegaController::class, 'store'])->name('bodegas.store')->middleware('permission:Productos,master');
+    Route::put('/bodegas/{id}', [BodegaController::class, 'update'])->name('bodegas.update')->middleware('permission:Productos,master');
+    Route::post('/bodegas/{id}/toggle-estado', [BodegaController::class, 'toggleEstado'])->name('bodegas.toggleEstado')->middleware('permission:Productos,master');
+    Route::delete('/bodegas/{id}', [BodegaController::class, 'destroy'])->name('bodegas.destroy')->middleware('permission:Productos,master');
+
     // Compras & Entradas
     Route::get('/compras/export', [CompraController::class, 'export'])->name('compras.export')->middleware('permission:Compras,lectura');
+    Route::get('/compras/plantilla-excel', [CompraController::class, 'descargarPlantillaExcel'])->name('compras.plantillaExcel')->middleware('permission:Compras,lectura');
+    Route::post('/compras/parse-xml', [CompraController::class, 'parseXml'])->name('compras.parseXml')->middleware('permission:Compras,master');
+    Route::post('/compras/parse-excel', [CompraController::class, 'parseExcel'])->name('compras.parseExcel')->middleware('permission:Compras,master');
+    Route::get('/compras/{id}/descargar-xml', [CompraController::class, 'descargarXml'])->name('compras.descargarXml')->middleware('permission:Compras,lectura');
+
     Route::get('/compras/notas-credito/export', [CompraNotaCreditoController::class, 'export'])->name('compras.notas-credito.export')->middleware('permission:Compras,lectura');
+    Route::get('/compras/notas-credito/plantilla-excel', [CompraNotaCreditoController::class, 'descargarPlantillaExcel'])->name('compras.notas-credito.plantillaExcel')->middleware('permission:Compras,lectura');
+    Route::post('/compras/notas-credito/parse-xml', [CompraNotaCreditoController::class, 'parseXml'])->name('compras.notas-credito.parseXml')->middleware('permission:Compras,master');
+    Route::post('/compras/notas-credito/parse-excel', [CompraNotaCreditoController::class, 'parseExcel'])->name('compras.notas-credito.parseExcel')->middleware('permission:Compras,master');
+    Route::get('/compras/notas-credito/{id}/descargar-xml', [CompraNotaCreditoController::class, 'descargarXml'])->name('compras.notas-credito.descargarXml')->middleware('permission:Compras,lectura');
     Route::get('/compras/notas-credito/compra/{id}/detalles', [CompraNotaCreditoController::class, 'getCompraDetalles'])->name('compras.notas-credito.compra-detalles')->middleware('permission:Compras,lectura');
     Route::get('/compras/notas-credito/{id}', [CompraNotaCreditoController::class, 'show'])->name('compras.notas-credito.show')->middleware('permission:Compras,lectura');
     Route::get('/compras/notas-credito', [CompraNotaCreditoController::class, 'index'])->name('compras.notas-credito.index')->middleware('permission:Compras,lectura');
     Route::post('/compras/notas-credito', [CompraNotaCreditoController::class, 'store'])->name('compras.notas-credito.store')->middleware('permission:Compras,master');
     Route::post('/compras/notas-credito/{id}/anular', [CompraNotaCreditoController::class, 'anular'])->name('compras.notas-credito.anular')->middleware('permission:Compras,master');
+
     Route::get('/compras/{id}', [CompraController::class, 'show'])->name('compras.show')->middleware('permission:Compras,lectura');
     Route::get('/compras', [CompraController::class, 'index'])->name('compras.index')->middleware('permission:Compras,lectura');
     Route::post('/compras', [CompraController::class, 'store'])->name('compras.store')->middleware('permission:Compras,master');
@@ -89,6 +114,8 @@ Route::middleware(['auth'])->group(function () {
     // Caja & Arqueos
     Route::get('/caja', [CajaController::class, 'index'])->name('caja.index')->middleware('permission:Caja,lectura');
     Route::get('/caja/turno/{turno_id}/reporte', [CajaController::class, 'reporte'])->name('caja.reporte')->middleware('permission:Caja,lectura');
+    Route::get('/caja/turno/{turno_id}/ticket-data', [CajaController::class, 'getTurnoTicketData'])->name('caja.turnoTicketData')->middleware('permission:Caja,lectura');
+    Route::get('/caja/turno/{turno_id}/ticket-html', [CajaController::class, 'turnoTicketHtml'])->name('caja.turnoTicketHtml')->middleware('permission:Caja,lectura');
 
     Route::middleware(['permission:Caja,master'])->group(function () {
         Route::post('/caja', [CajaController::class, 'store'])->name('caja.store');

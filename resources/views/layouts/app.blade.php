@@ -60,9 +60,15 @@
                 <a href="{{ url('/productos') }}" class="sidebar-link {{ Request::is('productos*') ? 'active' : '' }}">
                     <i class="fa-solid fa-boxes-stacked"></i> <span>Productos</span>
                 </a>
+                <a href="{{ url('/bodegas') }}" class="sidebar-link {{ Request::is('bodegas*') ? 'active' : '' }}">
+                    <i class="fa-solid fa-warehouse"></i> <span>Bodegas</span>
+                </a>
             @else
                 <a href="#" class="sidebar-link text-muted" onclick="alert('No tienes permisos para acceder a Productos.'); return false;" style="opacity: 0.6;">
                     <i class="fa-solid fa-boxes-stacked"></i> <span>Productos 🔒</span>
+                </a>
+                <a href="#" class="sidebar-link text-muted" onclick="alert('No tienes permisos para acceder a Bodegas.'); return false;" style="opacity: 0.6;">
+                    <i class="fa-solid fa-warehouse"></i> <span>Bodegas 🔒</span>
                 </a>
             @endif
 

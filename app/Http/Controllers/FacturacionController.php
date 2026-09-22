@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Producto;
+use App\Models\CajaMovimiento;
+use App\Models\CajaTurno;
 use App\Models\Cliente;
-use App\Models\MetodoPago;
-use App\Models\PuntoEmision;
 use App\Models\Emisor;
 use App\Models\Factura;
 use App\Models\FacturaDetalle;
 use App\Models\FacturaPago;
 use App\Models\InventarioGeneral;
+use App\Models\MetodoPago;
 use App\Models\Movimiento;
 use App\Models\MovimientoDetalle;
-use App\Models\CajaTurno;
+use App\Models\Producto;
+use App\Models\PuntoEmision;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class FacturacionController extends Controller
@@ -34,7 +35,7 @@ class FacturacionController extends Controller
                     'categoria' => $p->categoria->nombre ?? 'General',
                     'icono' => $p->icono,
                     'codigo_iva' => $p->codigo_iva,
-                    'tarifa_iva' => $p->tarifa_iva_porcentaje
+                    'tarifa_iva' => $p->tarifa_iva_porcentaje,
                 ];
             });
 
@@ -46,7 +47,7 @@ class FacturacionController extends Controller
                 'tipo' => $c->tipo_identificacion,
                 'tipo_nombre' => $c->tipo_nombre,
                 'correo' => $c->correo,
-                'direccion' => $c->direccion
+                'direccion' => $c->direccion,
             ];
         });
 
@@ -55,7 +56,7 @@ class FacturacionController extends Controller
                 'id' => $m->id,
                 'codigo' => $m->codigo_sri,
                 'nombre' => $m->nombre,
-                'icono' => $m->icono
+                'icono' => $m->icono,
             ];
         });
 
@@ -72,10 +73,10 @@ class FacturacionController extends Controller
             'metodo_pago_id' => 'required|exists:configuracion_metodos_pago,id',
             'items' => 'required|array|min:1',
             'items.*.id' => 'required|exists:inventario_productos,id',
-            'items.*.qty' => 'required|numeric|min:1'
+            'items.*.qty' => 'required|numeric|min:1',
         ]);
 
-        return DB::transaction(function () use ($validated, $request) {
+        return DB::transaction(function () use ($validated) {
             $emisor = Emisor::first();
             $puntoEmision = PuntoEmision::where('estado', 'ACTIVO')->lockForUpdate()->first();
             $secuencialNum = $puntoEmision ? $puntoEmision->secuencial_factura : 1;
@@ -119,7 +120,7 @@ class FacturacionController extends Controller
                     'codigo_impuesto_iva' => $prod->codigo_iva,
                     'tarifa_iva' => $tarifaIva,
                     'base_imponible_iva' => $lineTotal,
-                    'valor_iva' => $lineIva
+                    'valor_iva' => $lineIva,
                 ];
 
                 // Reduce inventory in general stock
@@ -134,7 +135,7 @@ class FacturacionController extends Controller
                     'producto_id' => $prod->id,
                     'cantidad' => $qty,
                     'costo_unitario' => $prod->costo_promedio ?? $price,
-                    'costo_total' => round(($prod->costo_promedio ?? $price) * $qty, 2)
+                    'costo_total' => round(($prod->costo_promedio ?? $price) * $qty, 2),
                 ];
             }
 
@@ -145,13 +146,13 @@ class FacturacionController extends Controller
             $tipoComp = '01';
             $ruc = str_pad($emisor ? $emisor->ruc : '1792948201001', 13, '0', STR_PAD_RIGHT);
             $ambiente = '1';
-            $serie = $estab . $pto;
+            $serie = $estab.$pto;
             $secuencial = $secuencialPadded;
             $codigoNumerico = '12345678';
             $tipoEmision = '1';
-            $clave48 = $fecha . $tipoComp . $ruc . $ambiente . $serie . $secuencial . $codigoNumerico . $tipoEmision;
+            $clave48 = $fecha.$tipoComp.$ruc.$ambiente.$serie.$secuencial.$codigoNumerico.$tipoEmision;
             $digitoVerificador = $this->calcularModulo11($clave48);
-            $claveAcceso = $clave48 . $digitoVerificador;
+            $claveAcceso = $clave48.$digitoVerificador;
 
             // Create Factura
             $factura = Factura::create([
@@ -176,7 +177,7 @@ class FacturacionController extends Controller
                 'estado_sri' => 'AUTORIZADO',
                 'fecha_autorizacion' => now(),
                 'numero_autorizacion' => $claveAcceso,
-                'mensajes_sri' => 'AUTORIZACION REGISTRADA EN EL SRI EXITOSAMENTE.'
+                'mensajes_sri' => 'AUTORIZACION REGISTRADA EN EL SRI EXITOSAMENTE.',
             ]);
 
             // Save details
@@ -191,7 +192,7 @@ class FacturacionController extends Controller
                 'metodo_pago_id' => $validated['metodo_pago_id'],
                 'total' => $importeTotal,
                 'plazo' => 0,
-                'unidad_tiempo' => 'DIAS'
+                'unidad_tiempo' => 'DIAS',
             ]);
 
             // Register Movement in Kardex
@@ -201,7 +202,7 @@ class FacturacionController extends Controller
                 'usuario_id' => 1,
                 'fecha_movimiento' => now(),
                 'referencia' => "{$estab}-{$pto}-{$secuencialPadded}",
-                'observaciones' => "Venta Factura #{$secuencialPadded}"
+                'observaciones' => "Venta Factura #{$secuencialPadded}",
             ]);
 
             foreach ($kardexDetalles as $kDet) {
@@ -225,9 +226,9 @@ class FacturacionController extends Controller
                 }
                 $turno->total_ventas += $importeTotal;
                 $turno->save();
-                
+
                 // Registrar Movimiento Financiero Real
-                \App\Models\CajaMovimiento::create([
+                CajaMovimiento::create([
                     'caja_turno_id' => $turno->id,
                     'tipo' => 'INGRESO',
                     'categoria' => 'Venta',
@@ -237,7 +238,7 @@ class FacturacionController extends Controller
                     'usuario_id' => 1,
                     'venta_id' => $factura->id,
                     'comprobante' => "{$estab}-{$pto}-{$secuencialPadded}",
-                    'observaciones' => 'Generado automáticamente desde POS'
+                    'observaciones' => 'Generado automáticamente desde POS',
                 ]);
             }
 
@@ -246,15 +247,125 @@ class FacturacionController extends Controller
                 $puntoEmision->increment('secuencial_factura');
             }
 
+            $ticketData = $this->formatFacturaTicketData($factura);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Factura emitida y autorizada correctamente ante el SRI',
+                'factura_id' => $factura->id,
                 'comprobante' => "{$estab}-{$pto}-{$secuencialPadded}",
                 'clave_acceso' => $claveAcceso,
                 'total' => $importeTotal,
-                'siguiente_secuencial' => $puntoEmision ? $puntoEmision->fresh()->siguiente_secuencial_factura_formatted : ''
+                'siguiente_secuencial' => $puntoEmision ? $puntoEmision->fresh()->siguiente_secuencial_factura_formatted : '',
+                'ticket_data' => $ticketData,
             ]);
         });
+    }
+
+    public function getTicketData($id)
+    {
+        $factura = Factura::with(['emisor', 'cliente', 'usuario', 'detalles.producto', 'pagos.metodoPago'])->findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'ticket_data' => $this->formatFacturaTicketData($factura),
+        ]);
+    }
+
+    public function ticketHtml($id)
+    {
+        $factura = Factura::with(['emisor', 'cliente', 'usuario', 'detalles.producto', 'pagos.metodoPago'])->findOrFail($id);
+        $ticketData = $this->formatFacturaTicketData($factura);
+
+        return view('facturacion.ticket_html', compact('factura', 'ticketData'));
+    }
+
+    public function descargarServidor()
+    {
+        $path = public_path('servidor_impresion/SysFact_Printer.exe');
+        if (! file_exists($path)) {
+            $path = base_path('servidor_impresion/dist/SysFact_Printer.exe');
+        }
+
+        if (file_exists($path)) {
+            return response()->download($path, 'SysFact_Printer.exe');
+        }
+
+        return back()->with('error', 'El instalador del servidor de impresión aún no ha sido generado.');
+    }
+
+    public function formatFacturaTicketData(Factura $factura): array
+    {
+        $factura->loadMissing(['emisor', 'cliente', 'usuario', 'detalles.producto', 'pagos.metodoPago']);
+
+        $emisor = $factura->emisor ?? Emisor::first();
+        $cliente = $factura->cliente;
+        $usuario = $factura->usuario;
+
+        $detalles = $factura->detalles->map(function ($d) {
+            return [
+                'producto_id' => $d->producto_id,
+                'codigo' => $d->codigo_principal,
+                'descripcion' => $d->descripcion,
+                'cantidad' => (float) $d->cantidad,
+                'precio_unitario' => (float) $d->precio_unitario,
+                'descuento' => (float) $d->descuento,
+                'precio_total_sin_impuestos' => (float) $d->precio_total_sin_impuestos,
+                'tarifa_iva' => $d->tarifa_iva !== null ? (float) $d->tarifa_iva : null,
+                'valor_iva' => (float) $d->valor_iva,
+            ];
+        })->toArray();
+
+        $pagos = $factura->pagos->map(function ($p) {
+            return [
+                'metodo_pago' => $p->metodoPago->nombre ?? 'EFECTIVO',
+                'codigo_sri' => $p->metodoPago->codigo_sri ?? '01',
+                'total' => (float) $p->total,
+            ];
+        })->toArray();
+
+        return [
+            'type' => 'factura',
+            'id' => $factura->id,
+            'comprobante' => "{$factura->establecimiento}-{$factura->punto_emision}-{$factura->secuencial}",
+            'numero_factura' => "{$factura->establecimiento}-{$factura->punto_emision}-{$factura->secuencial}",
+            'clave_acceso' => $factura->clave_acceso,
+            'numero_autorizacion' => $factura->numero_autorizacion ?: $factura->clave_acceso,
+            'fecha_emision' => $factura->fecha_emision ? date('d/m/Y H:i', strtotime($factura->created_at ?? $factura->fecha_emision)) : date('d/m/Y H:i'),
+            'ambiente' => $factura->ambiente ?? 1,
+            'estado_sri' => $factura->estado_sri ?? 'AUTORIZADO',
+            'emisor' => [
+                'ruc' => $emisor->ruc ?? '1790000000001',
+                'razon_social' => $emisor->razon_social ?? 'EMPRESA DEMO S.A.',
+                'nombre_comercial' => $emisor->nombre_comercial ?? '',
+                'direccion_matriz' => $emisor->direccion_matriz ?? 'Ecuador',
+                'direccion_establecimiento' => $emisor->direccion_establecimiento ?? '',
+                'contribuyente_especial' => $emisor->contribuyente_especial ?? '',
+                'obligado_contabilidad' => $emisor->obligado_contabilidad ?? 'NO',
+                'regimen_rimpe' => $emisor->regimen_rimpe ?? 'CONTRIBUYENTE RÉGIMEN RIMPE',
+            ],
+            'cliente' => [
+                'id' => $cliente->id ?? null,
+                'razon_social' => $cliente->razon_social ?? 'CONSUMIDOR FINAL',
+                'identificacion' => $cliente->identificacion ?? '9999999999999',
+                'tipo_identificacion' => $cliente->tipo_identificacion ?? '07',
+                'direccion' => $cliente->direccion ?? 'Ecuador',
+                'telefono' => $cliente->telefono ?? '',
+                'correo' => $cliente->correo ?? '',
+            ],
+            'usuario' => $usuario->nombre_completo ?? ($usuario->nombre ?? 'CAJERO'),
+            'detalles' => $detalles,
+            'totales' => [
+                'subtotal_sin_impuestos' => (float) $factura->total_sin_impuestos,
+                'base_imponible_0' => (float) $factura->base_imponible_0,
+                'base_imponible_iva' => (float) $factura->base_imponible_iva,
+                'total_descuento' => (float) $factura->total_descuento,
+                'valor_iva' => (float) $factura->valor_iva,
+                'importe_total' => (float) $factura->importe_total,
+            ],
+            'pagos' => $pagos,
+            'open_drawer' => true,
+        ];
     }
 
     private function calcularModulo11($cadena)
@@ -266,8 +377,13 @@ class FacturacionController extends Controller
             $factor = $factor == 7 ? 2 : $factor + 1;
         }
         $digito = 11 - ($suma % 11);
-        if ($digito == 11) return 0;
-        if ($digito == 10) return 1;
+        if ($digito == 11) {
+            return 0;
+        }
+        if ($digito == 10) {
+            return 1;
+        }
+
         return $digito;
     }
 }

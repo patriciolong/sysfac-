@@ -1,0 +1,8 @@
+{
+    "printer": "",
+    "print_mode": "RAW/ESC-POS (T\u00e9rmica R\u00e1pida)",
+    "paper_width": "80mm",
+    "open_drawer": false,
+    "auto_cut": true,
+    "port": 8080
+}

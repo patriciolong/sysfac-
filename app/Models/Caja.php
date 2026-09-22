@@ -18,7 +18,7 @@ class Caja extends Model
         'usuario_id',
         'punto_emision_id',
         'descripcion',
-        'estado'
+        'estado',
     ];
 
     public function responsable()

@@ -10,8 +10,11 @@ use App\Models\Movimiento;
 use App\Models\MovimientoDetalle;
 use App\Models\Producto;
 use App\Models\Proveedor;
+use App\Services\ExcelImportService;
+use App\Services\SriXmlParserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CompraController extends Controller
@@ -68,6 +71,8 @@ class CompraController extends Controller
                     'items_count' => $c->detalles->count(),
                     'articulos_cantidad' => (float) $c->detalles->sum('cantidad'),
                     'movimiento_id' => $c->movimiento_id,
+                    'xml_path' => $c->xml_path,
+                    'xml_nombre_original' => $c->xml_nombre_original,
                     'detalles' => $c->detalles->map(fn ($d) => [
                         'producto_id' => $d->producto_id,
                         'producto_nombre' => $d->producto->nombre ?? 'Producto',
@@ -137,6 +142,10 @@ class CompraController extends Controller
                 'observaciones' => $compra->observaciones,
                 'usuario' => $compra->nombre_usuario,
                 'movimiento_id' => $compra->movimiento_id,
+                'xml_path' => $compra->xml_path,
+                'xml_nombre_original' => $compra->xml_nombre_original,
+                'has_xml' => ! empty($compra->xml_path) && Storage::disk('public')->exists($compra->xml_path),
+                'xml_download_url' => route('compras.descargarXml', $compra->id),
                 'created_at' => $compra->created_at ? $compra->created_at->format('d/m/Y H:i') : 'N/A',
                 'detalles' => $compra->detalles->map(fn ($d) => [
                     'id' => $d->id,
@@ -159,6 +168,8 @@ class CompraController extends Controller
             'fecha_emision' => 'required|date',
             'bodega_id' => 'required|exists:inventario_bodegas,id',
             'observaciones' => 'nullable|string|max:500',
+            'xml_path' => 'nullable|string|max:255',
+            'xml_nombre_original' => 'nullable|string|max:255',
             'detalles' => 'required|array|min:1',
             'detalles.*.producto_id' => 'required|exists:inventario_productos,id',
             'detalles.*.cantidad' => 'required|numeric|min:0.0001',
@@ -170,6 +181,17 @@ class CompraController extends Controller
             $proveedorId = (int) $validated['proveedor_id'];
             $numeroFactura = trim($validated['numero_factura']);
             $fechaEmision = $validated['fecha_emision'];
+
+            $xmlPath = $validated['xml_path'] ?? null;
+            $xmlNombreOriginal = $validated['xml_nombre_original'] ?? null;
+
+            if ($request->hasFile('xml_file')) {
+                $file = $request->file('xml_file');
+                $xmlNombreOriginal = $file->getClientOriginalName();
+                $safeName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $xmlNombreOriginal);
+                $filename = 'compra_xml_'.uniqid().'_'.time().'_'.$safeName;
+                $xmlPath = $file->storeAs('xmls/compras', $filename, 'public');
+            }
 
             $subtotalSinImpuestos = 0.0;
             $totalIva = 0.0;
@@ -209,6 +231,8 @@ class CompraController extends Controller
                 'subtotal_sin_impuestos' => $subtotalSinImpuestos,
                 'iva' => $totalIva,
                 'total' => $total,
+                'xml_path' => $xmlPath,
+                'xml_nombre_original' => $xmlNombreOriginal,
                 'observaciones' => $validated['observaciones'] ?? "Ingreso por factura #{$numeroFactura}",
             ]);
 
@@ -437,5 +461,78 @@ class CompraController extends Controller
 
             fclose($handle);
         }, 200, $headers);
+    }
+
+    public function parseXml(Request $request, SriXmlParserService $parser)
+    {
+        $request->validate([
+            'xml_file' => 'required|file|max:5120', // Max 5MB
+        ]);
+
+        try {
+            $file = $request->file('xml_file');
+            $originalName = $file->getClientOriginalName();
+            $content = file_get_contents($file->getRealPath());
+            $resultado = $parser->parseFacturaXml($content);
+
+            // Store XML in public storage for persistence
+            $safeName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $originalName);
+            $filename = 'compra_xml_'.uniqid().'_'.time().'_'.$safeName;
+            $path = $file->storeAs('xmls/compras', $filename, 'public');
+
+            return response()->json([
+                'success' => true,
+                'data' => $resultado,
+                'xml_path' => $path,
+                'xml_nombre_original' => $originalName,
+                'message' => 'Factura electrónica XML del SRI procesada y guardada correctamente.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function descargarXml($id)
+    {
+        $compra = Compra::findOrFail($id);
+
+        if (! $compra->xml_path || ! Storage::disk('public')->exists($compra->xml_path)) {
+            return back()->with('error', 'El archivo XML asociado a esta factura de compra no se encuentra disponible.');
+        }
+
+        $nombreDescarga = $compra->xml_nombre_original ?: "Factura_Compra_{$compra->numero_factura}.xml";
+
+        return Storage::disk('public')->download($compra->xml_path, $nombreDescarga);
+    }
+
+    public function parseExcel(Request $request, ExcelImportService $excelService)
+    {
+        $request->validate([
+            'excel_file' => 'required|file|max:10240', // Max 10MB
+        ]);
+
+        try {
+            $file = $request->file('excel_file');
+            $resultado = $excelService->parseDetallesCompra($file);
+
+            return response()->json([
+                'success' => true,
+                'data' => $resultado,
+                'message' => "Se importaron exitosamente {$resultado['total_items']} productos desde el archivo.",
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function descargarPlantillaExcel(ExcelImportService $excelService): StreamedResponse
+    {
+        return $excelService->generarPlantillaCompra();
     }
 }

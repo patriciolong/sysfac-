@@ -21,9 +21,10 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $user = Auth::user();
-            
+
             if ($user->estado !== 'activo') {
                 Auth::logout();
+
                 return back()->withErrors([
                     'email' => 'Tu cuenta ha sido desactivada.',
                 ])->onlyInput('email');

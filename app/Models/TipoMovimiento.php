@@ -7,13 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 class TipoMovimiento extends Model
 {
     protected $table = 'inventario_tipos_movimiento';
+
     public $timestamps = false;
 
     protected $fillable = [
         'nombre',
         'naturaleza',
         'factor',
-        'descripcion'
+        'descripcion',
     ];
 
     public function movimientos()

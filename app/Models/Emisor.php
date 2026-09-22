@@ -22,7 +22,7 @@ class Emisor extends Model
         'firma_electronica_clave',
         'ambiente_sri',
         'proveedor_sistema_ruc',
-        'moneda'
+        'moneda',
     ];
 
     public function puntosEmision()

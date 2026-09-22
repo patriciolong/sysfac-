@@ -2,13 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Factura;
-use App\Models\Producto;
-use App\Models\Cliente;
 use App\Models\CajaTurno;
+use App\Models\Cliente;
+use App\Models\Factura;
 use App\Models\InventarioGeneral;
-use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -18,7 +15,7 @@ class DashboardController extends Controller
 
         $ventasHoy = (float) Factura::whereDate('fecha_emision', $hoy)->sum('importe_total');
         $facturasHoyCount = Factura::whereDate('fecha_emision', $hoy)->count();
-        
+
         $turnoActivo = CajaTurno::getTurnoActivo();
         $estadoCaja = $turnoActivo ? 'ABIERTA' : 'CERRADA';
         $montoApertura = $turnoActivo ? (float) $turnoActivo->monto_inicial : 0.00;
@@ -32,7 +29,7 @@ class DashboardController extends Controller
             'clientes_registrados' => Cliente::count(),
             'productos_stock_bajo' => $stockBajoCount,
             'estado_caja' => $estadoCaja,
-            'monto_apertura' => $montoApertura
+            'monto_apertura' => $montoApertura,
         ];
 
         $ultimasFacturas = Factura::with(['cliente', 'pagos.metodoPago'])
